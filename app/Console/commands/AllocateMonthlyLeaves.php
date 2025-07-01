@@ -8,6 +8,7 @@ use App\Models\LeaveType;
 use App\Models\EmployeeLeaveBalance;
 use Carbon\Carbon;
 
+
 class AllocateMonthlyLeaves extends Command
 {
     protected $signature = 'leaves:allocate-monthly';
