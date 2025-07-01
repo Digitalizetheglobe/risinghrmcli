@@ -266,36 +266,42 @@ try {
 
     // Loan calculations with error handling
     try {
-    $loanDeduction = 0;
-    $remainingLoan = 0;
+        $loanDeduction = 0;
+        $remainingLoan = 0;
 
-    if (isset($payslip->loan)) {
-        $loanDeduction = is_numeric($payslip->loan) ? max(0, (float)$payslip->loan) : 0;
+        if (isset($payslip->loan)) {
+            // Handle case where loan is stored as JSON array
+            if (is_string($payslip->loan) && str_starts_with($payslip->loan, '[')) {
+                $loanArray = json_decode($payslip->loan, true);
+                $loanDeduction = is_array($loanArray) ? array_sum($loanArray) : 0;
+            } else {
+                $loanDeduction = is_numeric($payslip->loan) ? max(0, (float)$payslip->loan) : 0;
+            }
 
-        if ($loanDeduction > 0) {
-            $totalLoans = \App\Models\EmployeeLoan::where('employee_id', $employee->id)
-                ->sum('total_amount');
-            $totalPaid = $totalLoans - \App\Models\EmployeeLoan::where('employee_id', $employee->id)
-                ->sum('remaining_amount');
-            $remainingLoan = $totalLoans - $totalPaid - $loanDeduction;
+            if ($loanDeduction > 0) {
+                $totalLoans = \App\Models\EmployeeLoan::where('employee_id', $employee->id)
+                    ->sum('total_amount');
+                $totalPaid = $totalLoans - \App\Models\EmployeeLoan::where('employee_id', $employee->id)
+                    ->sum('remaining_amount');
+                $remainingLoan = $totalLoans - $totalPaid - $loanDeduction;
+            }
         }
-    }
 
-    \Log::debug('Loan calculations completed', [
-        'loan_deduction' => $loanDeduction,
-        'remaining_loan' => $remainingLoan,
-        'loan_raw_value' => $payslip->loan ?? 'N/A',
-        'loan_raw_type' => isset($payslip->loan) ? gettype($payslip->loan) : 'N/A'
-    ]);
-} catch (\Exception $e) {
-    \Log::error('Loan Calculation Error', [
-        'error' => $e->getMessage(),
-        'trace' => $e->getTraceAsString(),
-        'loan_value' => $payslip->loan ?? 'N/A'
-    ]);
-    $loanDeduction = 0;
-    $remainingLoan = 0;
-}
+        \Log::debug('Loan calculations completed', [
+            'loan_deduction' => $loanDeduction,
+            'remaining_loan' => $remainingLoan,
+            'loan_raw_value' => $payslip->loan ?? 'N/A',
+            'loan_raw_type' => isset($payslip->loan) ? gettype($payslip->loan) : 'N/A'
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Loan Calculation Error', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'loan_value' => $payslip->loan ?? 'N/A'
+        ]);
+        $loanDeduction = 0;
+        $remainingLoan = 0;
+    }
 
 
     // Final calculations with strict type checking
@@ -591,31 +597,43 @@ try {
                                         </tr>
                                         
                                         
-                                      <tr>
-    <td style="padding: 8px; font-size: 12px; border-bottom: 1px solid #000; border-right: 1px solid #000;">Loan Deduction</td>
-    <td style="padding: 8px; font-size: 12px; border-bottom: 1px solid #000; text-align: right;">
-        @if($payslip->loan > 0)
-            {{ \Auth::user()->priceFormat($payslip->loan) }}
-            <div style="font-size: 10px; color: #666;">
-                @php
-                    $loanDetails = \App\Models\EmployeeLoan::where('employee_id', $employee->id)
-                        ->where('remaining_amount', '>', 0)
-                        ->with(['deductions' => function($q) use ($payslip) {
-                            $q->where('month', 'like', $payslip->salary_month.'%');
-                        }])
-                        ->get();
-                @endphp
-                
-                @foreach($loanDetails as $loan)
-                    EMI: {{ \Auth::user()->priceFormat($loan->monthly_emi) }}<br>
-                    Remaining: {{ \Auth::user()->priceFormat($loan->remaining_amount) }}
-                @endforeach
-            </div>
-        @else
-            ₹0.00
-        @endif
-    </td>
-</tr>
+                                        <tr>
+                                            <td style="padding: 8px; font-size: 12px; border-bottom: 1px solid #000; border-right: 1px solid #000;">Loan Deduction</td>
+                                            <td style="padding: 8px; font-size: 12px; border-bottom: 1px solid #000; text-align: right;">
+                                                @php
+                                                    // Handle loan display
+                                                    $loanValue = 0;
+                                                    if (isset($payslip->loan)) {
+                                                        if (is_string($payslip->loan) && str_starts_with($payslip->loan, '[')) {
+                                                            $loanArray = json_decode($payslip->loan, true);
+                                                            $loanValue = is_array($loanArray) ? array_sum($loanArray) : 0;
+                                                        } else {
+                                                            $loanValue = is_numeric($payslip->loan) ? $payslip->loan : 0;
+                                                        }
+                                                    }
+                                                @endphp
+                                                
+                                                {{ \Auth::user()->priceFormat($loanValue) }}
+                                                
+                                                @if($loanValue > 0)
+                                                    <div style="font-size: 10px; color: #666;">
+                                                        @php
+                                                            $loanDetails = \App\Models\EmployeeLoan::where('employee_id', $employee->id)
+                                                                ->where('remaining_amount', '>', 0)
+                                                                ->with(['deductions' => function($q) use ($payslip) {
+                                                                    $q->where('month', 'like', $payslip->salary_month.'%');
+                                                                }])
+                                                                ->get();
+                                                        @endphp
+                                                        
+                                                        @foreach($loanDetails as $loan)
+                                                            EMI: {{ \Auth::user()->priceFormat($loan->monthly_emi) }}<br>
+                                                            Remaining: {{ \Auth::user()->priceFormat($loan->remaining_amount) }}
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            </td>
+                                        </tr>
                                         
                                         <tr style="height: 35px;">
                                             <td style="padding: 8px; font-size: 12px; border-bottom: 1px solid #000; border-right: 1px solid #000;"></td>
