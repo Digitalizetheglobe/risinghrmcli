@@ -224,7 +224,7 @@
                                         <div class="col-md-3">
                                             <strong>Degree:</strong><br>
                                             {{ $edu['degree'] ?? '-' }}
-                                        </div>
+                                    d    </div>
                                         <div class="col-md-3">
                                             <strong>College Name:</strong><br>
                                             {{ $edu['college_name'] ?? '-' }}
@@ -236,6 +236,16 @@
                                         <div class="col-md-3">
                                             <strong>Grade:</strong><br>
                                             {{ $edu['grade'] ?? '-' }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Document:</strong><br>
+                                            @if(isset($edu['document_path']))
+                                                <a href="{{ asset($edu['document_path']) }}" target="_blank" class="btn btn-sm btn-primary">
+                                                    <i class="ti ti-download"></i> View
+                                                </a>
+                                            @else
+                                                -
+                                            @endif
                                         </div>
                                     </div>
                                     <hr>

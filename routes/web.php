@@ -124,6 +124,8 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskAssignController;
 use App\Http\Controllers\NoticeController;  
 use App\Http\Controllers\UnitController;
+use Illuminate\Support\Facades\File;
+
 
 
 
@@ -209,6 +211,20 @@ Route::get('/get-latest-attendance', function() {
     ]);
 })->middleware('auth:api');
 
+Route::get('education_images/{filename}', function($filename) {
+    $path = storage_path('education_images/'.$filename);
+    
+    if (!File::exists($path)) {
+        abort(404);
+    }
+
+    $file = File::get($path);
+    $type = File::mimeType($path);
+
+    return response($file, 200)
+           ->header('Content-Type', $type);
+})->where('filename', '.*');
+
 
 
  Route::group(['middleware' => ['auth']], function() {
@@ -222,7 +238,6 @@ Route::get('/get-latest-attendance', function() {
 
 
       
-        Route::resource('projects', ProjectController::class);
             });
 
 
@@ -1967,6 +1982,8 @@ Route::group(['middleware' => ['verified']], function () {
     Route::post('setting/appointmentletter/{appointmentlang?}', [SettingsController::class, 'appointmentletterUpdate'])->name('appointmentletter.update');
     Route::get('job-onboard/pdf/{id}', [JobApplicationController::class, 'offerletterPdf'])->name('offerlatter.download.pdf');
     Route::get('job-onboard/doc/{id}', [JobApplicationController::class, 'offerletterDoc'])->name('offerlatter.download.doc');
+
+
 
     //joining Letter
     Route::post('setting/joiningletter/{lang?}', [SettingsController::class, 'joiningletterupdate'])->name('joiningletter.update');

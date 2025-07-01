@@ -44,12 +44,14 @@ class Employee extends Model
         'created_by',
         'project_id',
         'week_off_day',
+        'education_images',
 
     ];
 
     protected $casts = [
         'education_details' => 'array',
         'experience_details' => 'array',
+        'education_images' => 'array',
     ];
 
     public function project()

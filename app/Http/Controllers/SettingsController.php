@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\EmailTemplate;
 use App\Models\GenerateOfferLetter;
+use App\Models\AppointmentLetter;
 use App\Models\JoiningLetter;
 use App\Models\ExperienceCertificate;
 use App\Models\NOC;
@@ -1637,22 +1638,12 @@ class SettingsController extends Controller
 
         return redirect()->back()->with('success', __('Offer Letter successfully saved.'));
     }
-    public function appointmentletterIndex($appointmentlang = 'en')
+    public function appointmentletterUpdate($lang, Request $request)
     {
-        $settings = Utility::settings();
-        $currAppointmentLetterLang = \App\Models\AppointmentLetter::where('lang', $appointmentlang)->first();
-        $appointmentLangName = (object)['fullName' => $appointmentlang];
-        return view('setting.company_settings', compact('settings', 'currAppointmentLetterLang', 'appointmentlang', 'appointmentLangName'));
-    }
 
-    public function appointmentletterUpdate(Request $request, $appointmentlang = 'en')
-    {
-        $content = $request->input('content');
-        $letter = \App\Models\AppointmentLetter::updateOrCreate(
-            ['lang' => $appointmentlang],
-            ['content' => $content]
-        );
-        return redirect()->back()->with('success', __('Appointment Letter updated successfully.'));
+        $user = AppointmentLetter::updateOrCreate(['lang' =>   $lang, 'created_by' =>  \Auth::user()->id], ['content' => $request->content]);
+
+        return redirect()->back()->with('success', __('Appointment Letter successfully saved.'));
     }
     public function joiningletterupdate($lang, Request $request)
     {

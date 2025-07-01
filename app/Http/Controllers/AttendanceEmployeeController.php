@@ -881,103 +881,103 @@ class AttendanceEmployeeController extends Controller
 
 
     public function attendance(Request $request)
-{
-    $settings = Utility::settings();
+    {
+        $settings = Utility::settings();
 
-    // IP Restriction Check
-    if (!empty($settings['ip_restrict']) && $settings['ip_restrict'] == 'on') {
-        $userIp = request()->ip();
-        $ip = IpRestrict::where('created_by', Auth::user()->creatorId())->whereIn('ip', [$userIp])->first();
-        if (empty($ip)) {
-            return redirect()->back()->with('error', __('This IP is not allowed to clock in & clock out.'));
+        // IP Restriction Check
+        if (!empty($settings['ip_restrict']) && $settings['ip_restrict'] == 'on') {
+            $userIp = request()->ip();
+            $ip = IpRestrict::where('created_by', Auth::user()->creatorId())->whereIn('ip', [$userIp])->first();
+            if (empty($ip)) {
+                return redirect()->back()->with('error', __('This IP is not allowed to clock in & clock out.'));
+            }
         }
+
+        $employeeId = !empty(\Auth::user()->employee) ? \Auth::user()->employee->id : 0;
+        $employee = Employee::find($employeeId);
+        $date = date("Y-m-d");
+        $time = date("H:i:s");
+        
+        // Get location data from request
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        $location = $request->input('location');
+        $accuracy = $request->input('accuracy');
+
+        // Check if the user has already punched in today
+        $todayAttendance = AttendanceEmployee::where('employee_id', $employeeId)
+                                            ->where('date', $date)
+                                            ->first();
+
+        if (!$todayAttendance) {
+            // First check if there's any pending clock-in (to prevent duplicates from multiple clicks)
+            $pendingClockIn = AttendanceEmployee::where('employee_id', $employeeId)
+                                            ->where('date', $date)
+                                            ->where('clock_in', '!=', '00:00:00')
+                                            ->where('clock_out', '00:00:00')
+                                            ->first();
+            
+            if ($pendingClockIn) {
+                return redirect()->back()->with('error', __('Your clock-in is already being processed.'));
+            }
+
+            // PUNCH IN
+            $expectedStartTime = $date . ' ' . Utility::getValByName('company_start_time');
+            $actualClockInTime = $date . ' ' . $time;
+            $totalLateSeconds = max(strtotime($actualClockInTime) - strtotime($expectedStartTime), 0);
+            $late = gmdate("H:i:s", $totalLateSeconds);
+
+            $employeeAttendance = new AttendanceEmployee();
+            $employeeAttendance->employee_id = $employeeId;
+            $employeeAttendance->date = $date;
+            $employeeAttendance->status = 'Present';
+            $employeeAttendance->clock_in = $time;
+            $employeeAttendance->clock_out = '00:00:00';
+            $employeeAttendance->late = $late;
+            $employeeAttendance->early_leaving = '00:00:00';
+            $employeeAttendance->overtime = '00:00:00';
+            $employeeAttendance->total_rest = '00:00:00';
+            $employeeAttendance->created_by = \Auth::user()->id;
+            
+            // Save location data if available
+            if ($latitude && $longitude) {
+                $employeeAttendance->clock_in_latitude = $latitude;
+                $employeeAttendance->clock_in_longitude = $longitude;
+                $employeeAttendance->clock_in_location = $location;
+                $employeeAttendance->clock_in_accuracy = $accuracy;
+            }
+            
+            $employeeAttendance->save();
+
+            
+
+            return redirect()->back()->with('success', __('Employee Successfully Clocked In.'));
+        } 
+        elseif ($todayAttendance->clock_out == '00:00:00') {
+            // PUNCH OUT
+            $clockInTime = strtotime($todayAttendance->clock_in);
+            $clockOutTime = strtotime($time);
+            $workedSeconds = $clockOutTime - $clockInTime;
+            $totalWorked = gmdate("H:i:s", $workedSeconds);
+
+            $todayAttendance->clock_out = $time;
+            $todayAttendance->overtime = $totalWorked;
+
+            // Save clock-out location if available
+            if ($latitude && $longitude) {
+                $todayAttendance->clock_out_latitude = $latitude;
+                $todayAttendance->clock_out_longitude = $longitude;
+                $todayAttendance->clock_out_location = $location;
+                $todayAttendance->clock_out_accuracy = $accuracy;
+            }
+
+            $todayAttendance->save();
+
+            return redirect()->back()->with('success', __('Employee Successfully Clocked Out.'));
+        } 
+
+        return redirect()->back()->with('error', __('You have already clocked out today.'));
     }
-
-    $employeeId = !empty(\Auth::user()->employee) ? \Auth::user()->employee->id : 0;
-    $employee = Employee::find($employeeId);
-    $date = date("Y-m-d");
-    $time = date("H:i:s");
-    
-    // Get location data from request
-    $latitude = $request->input('latitude');
-    $longitude = $request->input('longitude');
-    $location = $request->input('location');
-    $accuracy = $request->input('accuracy');
-
-    // Check if the user has already punched in today
-    $todayAttendance = AttendanceEmployee::where('employee_id', $employeeId)
-                                        ->where('date', $date)
-                                        ->first();
-
-    if (!$todayAttendance) {
-        // First check if there's any pending clock-in (to prevent duplicates from multiple clicks)
-        $pendingClockIn = AttendanceEmployee::where('employee_id', $employeeId)
-                                          ->where('date', $date)
-                                          ->where('clock_in', '!=', '00:00:00')
-                                          ->where('clock_out', '00:00:00')
-                                          ->first();
-        
-        if ($pendingClockIn) {
-            return redirect()->back()->with('error', __('Your clock-in is already being processed.'));
-        }
-
-        // PUNCH IN
-        $expectedStartTime = $date . ' ' . Utility::getValByName('company_start_time');
-        $actualClockInTime = $date . ' ' . $time;
-        $totalLateSeconds = max(strtotime($actualClockInTime) - strtotime($expectedStartTime), 0);
-        $late = gmdate("H:i:s", $totalLateSeconds);
-
-        $employeeAttendance = new AttendanceEmployee();
-        $employeeAttendance->employee_id = $employeeId;
-        $employeeAttendance->date = $date;
-        $employeeAttendance->status = 'Present';
-        $employeeAttendance->clock_in = $time;
-        $employeeAttendance->clock_out = '00:00:00';
-        $employeeAttendance->late = $late;
-        $employeeAttendance->early_leaving = '00:00:00';
-        $employeeAttendance->overtime = '00:00:00';
-        $employeeAttendance->total_rest = '00:00:00';
-        $employeeAttendance->created_by = \Auth::user()->id;
-        
-        // Save location data if available
-        if ($latitude && $longitude) {
-            $employeeAttendance->clock_in_latitude = $latitude;
-            $employeeAttendance->clock_in_longitude = $longitude;
-            $employeeAttendance->clock_in_location = $location;
-            $employeeAttendance->clock_in_accuracy = $accuracy;
-        }
-        
-        $employeeAttendance->save();
-
-        
-
-        return redirect()->back()->with('success', __('Employee Successfully Clocked In.'));
-    } 
-    elseif ($todayAttendance->clock_out == '00:00:00') {
-        // PUNCH OUT
-        $clockInTime = strtotime($todayAttendance->clock_in);
-        $clockOutTime = strtotime($time);
-        $workedSeconds = $clockOutTime - $clockInTime;
-        $totalWorked = gmdate("H:i:s", $workedSeconds);
-
-        $todayAttendance->clock_out = $time;
-        $todayAttendance->overtime = $totalWorked;
-
-        // Save clock-out location if available
-        if ($latitude && $longitude) {
-            $todayAttendance->clock_out_latitude = $latitude;
-            $todayAttendance->clock_out_longitude = $longitude;
-            $todayAttendance->clock_out_location = $location;
-            $todayAttendance->clock_out_accuracy = $accuracy;
-        }
-
-        $todayAttendance->save();
-
-        return redirect()->back()->with('success', __('Employee Successfully Clocked Out.'));
-    } 
-
-    return redirect()->back()->with('error', __('You have already clocked out today.'));
-}
     
     /**
      * Validate if the employee is within allowed company premises

@@ -117,6 +117,11 @@
                     'document.*' => 'required',
                 ];
 
+                    $messages = [
+                    'education.*.document.max' => 'The education document must not be greater than 10MB.',
+                    'education.*.document.mimes' => 'The education document must be a file of type: pdf, doc, docx, jpg, jpeg, png.',
+                ];
+
                 $validator = \Validator::make($request->all(), $rules);
 
                 if ($validator->fails()) {
@@ -125,15 +130,29 @@
 
                 // Process education details
                 $educationDetails = [];
+                $educationImages = [];
+                
                 if ($request->has('education')) {
-                    foreach ($request->education as $education) {
+                    foreach ($request->education as $key => $education) {
                         if (!empty($education['college_name'])) {
+                            $docPath = null;
+                            
+                            // Handle document upload
+                            if (isset($education['document']) && $education['document']) {
+                                $docPath = $this->storeEducationDocument($education['document'], $request->employee_id, $key);
+                            }
+                            
                             $educationDetails[] = [
                                 'college_name' => $education['college_name'],
                                 'passing_year' => $education['passing_year'] ?? null,
                                 'grade' => $education['grade'] ?? null,
                                 'degree' => $education['degree'] ?? null,
+                                'document_path' => $docPath,
                             ];
+                            
+                            if ($docPath) {
+                                $educationImages[] = $docPath;
+                            }
                         }
                     }
                 }
@@ -185,6 +204,7 @@
                     'emergency_number' => $request['emergency_number'] ?? null,
                     'week_off_day' => $request['week_off_day'] ?? null,
                     'education_details' => json_encode($educationDetails ?? []),
+                    'education_images' => json_encode($educationImages),
                     'experience_details' => json_encode($experienceDetails ?? []),
                     'created_by' => \Auth::user()->creatorId(),
                 ]);
@@ -273,18 +293,37 @@
         
                 // Process education details
                 $educationDetails = [];
+                $educationImages = [];
+                
                 if ($request->has('education')) {
                     foreach ($request->education as $key => $education) {
                         if (!empty($education['college_name'])) {
+                            $docPath = $education['existing_document'] ?? null;
+                            
+                            // Handle new document upload
+                            if (isset($education['document']) && $education['document']) {
+                                // Delete old document if exists
+                                if ($docPath && file_exists(public_path($docPath))) {
+                                    unlink(public_path($docPath));
+                                }
+                                $docPath = $this->storeEducationDocument($education['document'], $employee->employee_id, $key);
+                            }
+                            
                             $educationDetails[] = [
                                 'college_name' => $education['college_name'],
                                 'passing_year' => $education['passing_year'] ?? null,
                                 'grade' => $education['grade'] ?? null,
                                 'degree' => $education['degree'] ?? null,
+                                'document_path' => $docPath,
                             ];
+                            
+                            if ($docPath) {
+                                $educationImages[] = $docPath;
+                            }
                         }
                     }
                 }
+
         
                 // Process experience details
                 $experienceDetails = [];
@@ -316,6 +355,7 @@
                     'office_phone_two' => $request['office_phone_two'] ?? null,
                     'emergency_number' => $request['emergency_number'] ?? null,
                     'education_details' => json_encode($educationDetails),
+                    'education_images' => json_encode($educationImages),
                     'experience_details' => json_encode($experienceDetails),
                     'week_off_day' => $request['week_off_day'] ?? null,
                     'comp_off_enabled' => $request->has('comp_off_enabled') ? 1 : 0,
@@ -786,4 +826,21 @@
         $settings = Utility::settings();
         return $settings["employee_prefix"] . sprintf("%06d", $number);
     }
+
+
+    private function storeEducationDocument($file, $employeeId, $index)
+    {
+        $folderPath = 'D:/risinghrmcli/storage/education_images';
+        
+        // Create directory if it doesn't exist
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0777, true);
+        }
+        
+        $filename = 'edu_' . $employeeId . '_' . $index . '_' . time() . '.' . $file->getClientOriginalExtension();
+        $file->move($folderPath, $filename);
+        
+        return 'education_images/' . $filename;
     }
+
+}

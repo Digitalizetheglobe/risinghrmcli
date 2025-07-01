@@ -73,36 +73,14 @@
                                 </a>
                                 <ul class="dash-submenu">
                                     @can('Manage Report')
-                                        <li class="dash-item">
-                                            <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg" 
-                                            href="{{ route('report.income-expense') }}">
-                                            {{ __('Income Vs Expense') }}
-                                            </a>
-                                        </li>
+                                        
                                         <li class="dash-item">
                                             <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg" 
                                             href="{{ route('report.monthly.attendance') }}">
                                             {{ __('Monthly Attendance') }}
                                             </a>
                                         </li>
-                                        <li class="dash-item">
-                                            <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg" 
-                                            href="{{ route('report.leave') }}">
-                                            {{ __('Leave') }}
-                                            </a>
-                                        </li>
-                                        <li class="dash-item">
-                                            <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg" 
-                                            href="{{ route('report.account.statement') }}">
-                                            {{ __('Account Statement') }}
-                                            </a>
-                                        </li>
-                                        <li class="dash-item">
-                                            <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg" 
-                                            href="{{ route('report.payroll') }}">
-                                            {{ __('Payroll') }}
-                                            </a>
-                                        </li>
+                                        
                                     @endcan
                                 </ul>
                             </li>
@@ -387,6 +365,17 @@
                        <li class="dash-item {{ Request::segment(1) == 'attendance-calendar' ? ' active' : '' }}">
                             <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg" href="{{ route('attendance.calendar') }}">{{ __('Attendance Calendar') }}</a>
                         </li>
+
+                        @can('Manage Report')
+                                        
+                                        <li class="dash-item">
+                                            <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg" 
+                                            href="{{ route('report.monthly.attendance') }}">
+                                            {{ __('Monthly Attendance') }}
+                                            </a>
+                                        </li>
+                                        
+                                    @endcan
 
                         @can('Manage Attendance')
                             <li class="dash-item">

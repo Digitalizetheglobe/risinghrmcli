@@ -12,4 +12,10 @@ class EmployeeDocument extends Model
         'document_value',
         'created_by'
     ];
+
+    // Relationship to Document model
+    public function document()
+    {
+        return $this->belongsTo(Document::class, 'document_id');
+    }
 }
