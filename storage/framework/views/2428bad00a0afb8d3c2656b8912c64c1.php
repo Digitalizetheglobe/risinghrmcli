@@ -300,21 +300,24 @@ try {
 
     // Final calculations with strict type checking
     try {
-        $totalDeductions = (float)$deductionForAbsent + (float)$deductionForCasualLeave + (float)$ptDeduction + (float)$loanDeduction;
-        $netSalary = (float)$grossSalary - (float)$totalDeductions;
-        
-        \Log::info('Final salary calculations', [
-            'total_deductions' => $totalDeductions,
-            'net_salary' => $netSalary,
-            'type_checks' => [
-                'grossSalary' => gettype($grossSalary),
-                'deductionForAbsent' => gettype($deductionForAbsent),
-                'deductionForCasualLeave' => gettype($deductionForCasualLeave),
-                'ptDeduction' => gettype($ptDeduction),
-                'loanDeduction' => gettype($loanDeduction),
-                'totalDeductions' => gettype($totalDeductions)
-            ]
-        ]);
+    // Initialize loan deduction first (FIX: Move this line here)
+    $loanDeduction = isset($payslip->loan) ? (float)$payslip->loan : 0;
+
+    $totalDeductions = (float)$deductionForAbsent + (float)$deductionForCasualLeave + (float)$ptDeduction + (float)$loanDeduction;
+    $netSalary = (float)$grossSalary - (float)$totalDeductions;
+    
+    \Log::info('Final salary calculations', [
+        'total_deductions' => $totalDeductions,
+        'net_salary' => $netSalary,
+        'type_checks' => [
+            'grossSalary' => gettype($grossSalary),
+            'deductionForAbsent' => gettype($deductionForAbsent),
+            'deductionForCasualLeave' => gettype($deductionForCasualLeave),
+            'ptDeduction' => gettype($ptDeduction),
+            'loanDeduction' => gettype($loanDeduction), // FIX: Now this is just a value
+            'totalDeductions' => gettype($totalDeductions)
+        ]
+    ]);
     } catch (\Exception $e) {
         \Log::error('Final Calculation Error', [
             'error' => $e->getMessage(),
@@ -331,7 +334,7 @@ try {
                 'deductionForAbsent' => isset($deductionForAbsent) ? gettype($deductionForAbsent) : 'N/A',
                 'deductionForCasualLeave' => isset($deductionForCasualLeave) ? gettype($deductionForCasualLeave) : 'N/A',
                 'ptDeduction' => isset($ptDeduction) ? gettype($ptDeduction) : 'N/A',
-                $loanDeduction = isset($payslip->loan) ? (float)$payslip->loan : 0;
+                'loanDeduction' => isset($loanDeduction) ? gettype($loanDeduction) : 'N/A' // FIX: No assignment here
             ]
         ]);
         abort(500, 'Failed to calculate final salary: ' . $e->getMessage());
