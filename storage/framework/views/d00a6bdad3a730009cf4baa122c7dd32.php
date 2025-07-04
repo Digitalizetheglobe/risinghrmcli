@@ -1,1 +1,0 @@
-<?php /**PATH C:\xampp\htdocs\hrm\resources\views/booking/steps/personal_info.blade.php ENDPATH**/ ?>

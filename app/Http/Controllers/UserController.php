@@ -28,21 +28,30 @@ use Lab404\Impersonate\Impersonate;
 class UserController extends Controller
 {
     public function index()
-    {
-        if (\Auth::user()->can('Manage User')) {
-            $user = \Auth::user();
-            if (\Auth::user()->type == 'super admin') {
-                $users = User::where('created_by', '=', $user->creatorId())->where('type', '=', 'company')->with('currentPlan')->get();
-                $CountUser = User::where('created_by')->get();
-            } else {
-                $users = User::where('created_by', '=', $user->creatorId())->where('type', '!=', 'employee')->get();
-            }
+{
+    $user = \Auth::user();
 
-            return view('user.index', compact('users'));
+    // Allow super admin without permission check
+    if ($user->type == 'super admin' || $user->can('Manage User')) {
+
+        if ($user->type == 'super admin') {
+            $users = User::where('created_by', '=', $user->creatorId())
+                        ->where('type', '=', 'company')
+                        ->with('currentPlan')
+                        ->get();
+            $CountUser = User::where('created_by')->get(); // ← this line is likely incomplete
         } else {
-            return redirect()->back()->with('error', __('Permission denied.'));
+            $users = User::where('created_by', '=', $user->creatorId())
+                        ->where('type', '!=', 'employee')
+                        ->get();
         }
+
+        return view('user.index', compact('users'));
+    } else {
+        return redirect()->back()->with('error', __('Permission denied.'));
     }
+}
+
 
     public function create()
     {

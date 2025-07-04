@@ -2820,4 +2820,12 @@ class Utility extends Model
             $user->save();
         }
     }
+
+    
+    public static function getSuperAdminPermissions()
+    {
+        // If you use Spatie Permission package:
+        $permissions = \Spatie\Permission\Models\Permission::pluck('name')->toArray();
+        return $permissions;
+    }
 }

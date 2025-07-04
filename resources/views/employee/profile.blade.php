@@ -142,13 +142,16 @@
                         <div class="row mt-2">
                             <div class="col-12 col-sm-12">
                                 <div class="d-grid">
-                                    @can('Show Employee Profile')
-                                        <a class="btn btn-outline-primary mx-5"
-                                            href="{{ route('show.employee.profile', \Illuminate\Support\Facades\Crypt::encrypt($employee->id)) }}">{{ \Auth::user()->employeeIdFormat($employee->employee_id) }}</a>
+                                    @can('Show Employee')
+                                        <a class="btn btn-outline-primary"
+                                            href="{{ route('employee.show', \Illuminate\Support\Facades\Crypt::encrypt($employee->id)) }}">
+                                            {{ $employee->formatted_id }}
+                                        </a>
                                     @else
-                                        <a class="btn btn-outline-primary mx-5"
-                                            href="{{ route('employee.show', \Illuminate\Support\Facades\Crypt::encrypt($employee->id)) }}">{{ \Auth::user()->employeeIdFormat($employee->employee_id) }}</a>
-                                    @endcan
+                                        <a href="#" class="btn btn-outline-primary">
+                                            {{ $employee->formatted_id }}
+                                        </a>
+                                    @endcan 
                                 </div>
                             </div>
                         </div>

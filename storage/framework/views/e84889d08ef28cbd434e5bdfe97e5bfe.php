@@ -13,10 +13,10 @@
 
 <?php if(isset($setting['cust_theme_bg']) && $setting['cust_theme_bg'] == 'on'): ?>
 <nav class="dash-sidebar light-sidebar transprent-bg" 
-    style="background: linear-gradient(to bottom, #0a3772, #008ecc); height: 750px;">
+    style="background: linear-gradient(to bottom, #000, #575757); height: 750px;">
     
     <?php else: ?>
-        <nav class="dash-sidebar light-sidebar" style="background: linear-gradient(to bottom, #0a3772, #008ecc); height: 715px;">
+        <nav class="dash-sidebar light-sidebar" style="background: linear-gradient(to bottom, #000, #050505); height: 715px;">
 <?php endif; ?>
 
 
@@ -26,7 +26,7 @@
         <a href="<?php echo e(route('dashboard')); ?>" class="b-brand">
             <!-- ========   change your logo hear   ============ -->
             <img src="<?php echo e($logo . (isset($company_logo) && !empty($company_logo) ? $company_logo . '?' . time() : 'logo-dark.png' . '?' . time())); ?>"
-                alt="<?php echo e(config('app.name', 'HRMGo')); ?>" class="logo logo-lg" style="height: 200px;">
+                alt="<?php echo e(config('app.name', 'HRMGo')); ?>" class="logo logo-lg" style="height: 75px;">
         </a>
     </div>
     <div class="navbar-content">
@@ -825,13 +825,7 @@
             <?php endif; ?>
 
             <?php if(\Auth::user()->type == 'super admin'): ?>
-                <li
-                    class="dash-item <?php echo e(Request::route()->getName() == 'email_template.show' || Request::segment(1) == 'email_template_lang' || Request::route()->getName() == 'manageemail.lang' ? 'active' : ''); ?>">
-                    <a href="<?php echo e(route('manage.email.language', [$emailTemplate->id, \Auth::user()->lang])); ?>"
-                        class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg flex items-center space-x-2"><span class="dash-micon text-white text-[30px] shadow-none" style="background: none;"><i
-                                class="ti ti-template text-white text-[30px]"></i></span><span
-                            class="dash-mtext"><?php echo e(__('Email Templates')); ?></span></a>
-                </li>
+                <!--  -->
             <?php endif; ?>
             <!--report-->
   

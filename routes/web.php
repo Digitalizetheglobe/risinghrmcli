@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\AamarpayController;
 use App\Models\Employee;
-
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AwardController;
