@@ -17,9 +17,18 @@ class Loan extends Model
         'created_by',
     ];
 
+    protected $casts = [
+        'month' => 'date',
+    ];
+
+    public function deductions()
+    {
+        return $this->hasMany(LoanDeduction::class);
+    }
+
     public function employee()
     {
-        return $this->hasOne('App\Models\Employee', 'id', 'employee_id')->first();
+        return $this->belongsTo(Employee::class);
     }
 
     public function loan_option()
@@ -30,4 +39,6 @@ class Loan extends Model
         'fixed'=>'Fixed',
         'percentage'=> 'Percentage',
     ];
+
+    
 }

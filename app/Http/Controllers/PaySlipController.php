@@ -549,48 +549,36 @@ class PaySlipController extends Controller
     }
 
 
-  public static function loan($employeeId, $month = null)
-{
-    \Log::info("Calculating loan for employee $employeeId for month $month");
-
-    if (!$month) {
-        $month = now()->format('Y-m');
-    }
-
-    // Get all active loans for this employee
-    $loans = EmployeeLoan::where('employee_id', $employeeId)
-        ->where('remaining_amount', '>', 0)
-        ->with(['deductions' => function($query) use ($month) {
-            $query->where('month', 'like', $month.'%');
-        }])
-        ->get();
-
-    \Log::info("Found ".count($loans)." active loans");
-
-    $totalDeduction = 0;
-
-    foreach ($loans as $loan) {
-        // Find the deduction for this specific month
-        $deduction = $loan->deductions->firstWhere('month', 'like', $month.'%');
-
-        if ($deduction && !$deduction->is_deducted) {
-            // Only include if not already deducted
-            $totalDeduction += $deduction->emi_amount;
-            
-            // Mark as deducted (but don't save yet - we'll do that after payslip is confirmed)
-            $deduction->is_deducted = true;
-            $deduction->save();
-            
-            // Update loan remaining amount
-            $loan->remaining_amount -= $deduction->emi_amount;
-            $loan->save();
+    public static function loan($employeeId, $month = null)
+    {
+        if (!$month) {
+            $month = now()->format('Y-m');
         }
+
+        $totalDeduction = 0;
+        $loans = EmployeeLoan::where('employee_id', $employeeId)
+            ->where('remaining_amount', '>', 0)
+            ->with(['deductions' => function($query) use ($month) {
+                $query->where('month', 'like', $month.'%');
+            }])
+            ->get();
+
+        foreach ($loans as $loan) {
+            $deduction = $loan->deductions->firstWhere('month', 'like', $month.'%');
+            
+            if ($deduction && $deduction->is_deducted === false && $deduction->remark !== 'No Deduction') {
+                $totalDeduction += $deduction->emi_amount;
+                
+                // Mark as deducted
+                $deduction->update(['is_deducted' => true]);
+                
+                // Update loan remaining amount
+                $loan->decrement('remaining_amount', $deduction->emi_amount);
+            }
+        }
+
+        return $totalDeduction;
     }
-
-    \Log::info("Total loan deduction for month $month: $totalDeduction");
-    return $totalDeduction;
-}
-
 
 
 }

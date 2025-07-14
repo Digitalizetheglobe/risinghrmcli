@@ -180,21 +180,37 @@
     <div class="row">
         <div class="col">
             <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-center align-items-center">
+                        <div class="me-3 d-flex align-items-center">
+                            <div class="color-indicator present me-2"></div>
+                            <span>Present</span>
+                        </div>
+                        <div class="me-3 d-flex align-items-center">
+                            <div class="color-indicator absent me-2"></div>
+                            <span>Absent</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="color-indicator week-off me-2"></div>
+                            <span>Week Off</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body table-border-style">
                     <div class="table-responsive py-4 attendance-table-responsive">
-                        <table class="table">
+                        <table class="table table-bordered">
                             <thead>
                                 <tr>
                                     <th class="active">{{ __('Name') }}</th>
                                         @foreach ($dates as $key => $dateInfo)
                                             @php
-                                                $fullDate = $dateInfo['full_date']; // '2025-07-01'
-                                                $shortDay = $dateInfo['day'];       // 'Mon', 'Tue', etc.
+                                                $date = $key;
+                                                $day = $dateInfo['day'];
                                             @endphp
-                                            <th>
-                                                {{ $fullDate }}<br>
-                                                <small>{{ $shortDay }}</small>
-                                            </th>
+                                                <th class="day-header">
+                                                    <div class="date-number">{{ $date }}</div>
+                                                    <div class="day-abbr">{{ $day }}</div>
+                                                </th>
                                         @endforeach
                                 </tr>
                             </thead>
@@ -217,18 +233,18 @@
                                                 <td>
                                                     @if ($isWeekOff && $statusEntry && $statusEntry['status'] == 'P')
                                                         {{-- Week off but present --}}
-                                                        <span class="badge bg-success p-2 rounded" title="Week Off ({{ $weekOffDay }}) + Present">P</span>
+                                                        <span class="badge bg-success p-2 triangle" title="Week Off ({{ $weekOffDay }}) + Present"> </span>
                                                     @elseif ($isWeekOff)
                                                         {{-- Week off and not present --}}
-                                                        <span class="badge bg-info p-2 rounded" title="Week Off ({{ $weekOffDay }})">W</span>
+                                                        <span class="badge bg-info p-2 square" title="Week Off ({{ $weekOffDay }})"> </span>
                                                     @elseif ($statusEntry && $statusEntry['status'] == 'L')
-                                                        <span class="badge bg-warning p-2 rounded" title="Leave: {{ $statusEntry['type'] ?? '' }}">L</span>
+                                                        <span class="badge bg-warning p-2 hexagon" title="Leave: {{ $statusEntry['type'] ?? '' }}"> </span>
                                                     @elseif ($statusEntry && $statusEntry['status'] == 'P')
-                                                        <span class="badge bg-success p-2 rounded">P</span>
+                                                        <span class="badge bg-success p-2 triangle"> </span>
                                                     @elseif ($statusEntry && $statusEntry['status'] == 'A')
-                                                        <span class="badge bg-danger p-2 rounded">A</span>
-                                                    @else
-                                                        <span class="badge bg-secondary p-2 rounded">-</span>
+                                                        <span class="badge bg-danger p-2 square"> </span>
+                                                    @else ($statusEntry && $statusEntry['status'] == 'Ab')
+                                                        <span class="badge bg-danger p-2 square"> </span>
                                                     @endif
                                                 </td>
                                         @endforeach

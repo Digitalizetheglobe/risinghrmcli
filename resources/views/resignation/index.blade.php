@@ -38,6 +38,7 @@
                                 <th>{{ __('Resignation Date') }}</th>
                                 <th>{{ __('Last Working Day') }}</th>
                                 <th>{{ __('Reason') }}</th>
+                                <th>{{ __('Status') }}</th> 
                                 @if (Gate::check('Edit Resignation') || Gate::check('Delete Resignation'))
                                     <th width="200px">{{ __('Action') }}</th>
                                 @endif
@@ -55,9 +56,28 @@
                                     <td>{{ \Auth::user()->dateFormat($resignation->notice_date) }}</td>
                                     <td>{{ \Auth::user()->dateFormat($resignation->resignation_date) }}</td>
                                     <td>{{ $resignation->description }}</td>
+                                    <td>
+                                        @if($resignation->status == 'pending')
+                                            <span class="badge bg-warning">{{ __('Pending') }}</span>
+                                        @else
+                                            <span class="badge bg-success">{{ __('Approved') }}</span>
+                                        @endif
+                                    </td>
                                     <td class="Action">
                                         @if (Gate::check('Edit Resignation') || Gate::check('Delete Resignation'))
                                             <span>
+                                                @can('Manage Resignation')
+                                                    @if($resignation->status == 'pending')
+                                                    <div class="action-btn bg-primary ms-2">
+                                                        <a href="{{ route('resignation.review', $resignation->id) }}" 
+                                                        class="mx-3 btn btn-sm align-items-center" 
+                                                        data-bs-toggle="tooltip" 
+                                                        title="{{ __('Review') }}">
+                                                            <i class="ti ti-eye text-white"></i>
+                                                        </a>
+                                                    </div>
+                                                    @endif
+                                                @endcan
                                                 @can('Edit Resignation')
                                                     <div class="action-btn bg-info ms-2">
                                                         <a href="#" class="mx-3 btn btn-sm  align-items-center" data-size="lg"

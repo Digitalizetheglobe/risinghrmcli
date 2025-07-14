@@ -1,12 +1,12 @@
 @extends('layouts.admin')
 
 @section('page-title')
-    {{ __('Manage Termination') }}
+    {{ __('Manage Exit Formalities') }}
 @endsection
 
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">{{ __('Home') }}</a></li>
-    <li class="breadcrumb-item">{{ __('Termination') }}</li>
+    <li class="breadcrumb-item">{{ __('Exit Formalities') }}</li>
 @endsection
 
 

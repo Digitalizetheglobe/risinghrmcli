@@ -41,7 +41,9 @@
                                     <td>{{ \Auth::user()->priceFormat($loan->total_amount) }}</td>
                                     <td>{{ \Auth::user()->priceFormat($loan->monthly_emi) }}</td>
                                     <td>{{ $loan->number_of_months }}</td>
-                                    <td>{{ \Auth::user()->priceFormat($loan->remaining_amount) }}</td>
+                                    <td class="{{ $loan->remaining_amount > 0 ? 'text-warning' : 'text-success' }}">
+                                        {{ \Auth::user()->priceFormat($loan->remaining_amount) }}
+                                    </td>
                                     <td>{{ \Auth::user()->dateFormat($loan->start_month) }}</td>
                                     <td class="Action">
                                                 <span>
@@ -50,18 +52,22 @@
                                                             <i class="ti ti-eye"></i>
                                                         </a>
                                                     @endcan
-                                                    
-                                                   @can('Edit Employee')
-                                                        @if ($loan->deductions->isNotEmpty())
-                                                            <div class="action-btn bg-info ms-2">
-                                                                <a href="{{ route('loan.deduction.edit', $loan->deductions->first()->id) }}" 
-                                                                    class="mx-3 btn btn-sm align-items-center" 
-                                                                    data-bs-toggle="tooltip" 
-                                                                    title="{{ __('Edit') }}">
-                                                                    <i class="ti ti-pencil text-white"></i>
+
+                                                    @can('Delete Employee')
+                                                            <div class="action-btn bg-danger ms-2">
+                                                                {!! Form::open([
+                                                                    'method' => 'DELETE',
+                                                                    'route' => ['loan.destroy', $loan->id],
+                                                                    'id' => 'delete-form-' . $loan->id,
+                                                                ]) !!}
+                                                                <a href="#"
+                                                                    class="mx-3 btn btn-sm align-items-center bs-pass-para"
+                                                                    data-bs-toggle="tooltip" title=""
+                                                                    data-bs-original-title="Delete" aria-label="Delete">
+                                                                    <i class="ti ti-trash text-white"></i>
                                                                 </a>
+                                                                {!! Form::close() !!}
                                                             </div>
-                                                        @endif
                                                     @endcan
                                                 </span>
                                             </td>

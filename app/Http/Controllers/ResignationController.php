@@ -3,36 +3,35 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
-use App\Mail\ResignationSend;
+use App\Mail\ResignationApproved;
 use App\Models\Resignation;
 use App\Models\User;
 use App\Models\Utility;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use App\Jobs\SendResignationApprovalEmail;
+
 
 class ResignationController extends Controller
 {
     public function index()
     {
-        if(\Auth::user()->can('Manage Resignation'))
-        {
-            if(Auth::user()->type == 'employee')
-            {
-                $emp          = Employee::where('user_id', '=', \Auth::user()->id)->first();
-                $resignations = Resignation::where('created_by', '=', \Auth::user()->creatorId())->where('employee_id', '=', $emp->id)->get();
-            }
-            else
-            {
-                $resignations = Resignation::where('created_by', '=', \Auth::user()->creatorId())->get();
+        if(\Auth::user()->can('Manage Resignation')) {
+            if(Auth::user()->type == 'employee') {
+                $emp = Employee::where('user_id', \Auth::user()->id)->first();
+                $resignations = Resignation::where('created_by', \Auth::user()->creatorId())
+                    ->where('employee_id', $emp->id)
+                    ->get();
+            } else {
+                $resignations = Resignation::where('created_by', \Auth::user()->creatorId())
+                    ->with(['employee', 'approvedBy'])
+                    ->get();
             }
 
             return view('resignation.index', compact('resignations'));
         }
-        else
-        {
-            return redirect()->back()->with('error', __('Permission denied.'));
-        }
+        return redirect()->back()->with('error', __('Permission denied.'));
     }
 
     public function create()
@@ -212,5 +211,48 @@ class ResignationController extends Controller
         {
             return redirect()->back()->with('error', __('Permission denied.'));
         }
+    }
+
+    public function review($id)
+    {
+        if(\Auth::user()->can('Manage Resignation')) {
+            $resignation = Resignation::with(['employee'])->findOrFail($id);
+            return view('resignation.review', compact('resignation'));
+        }
+        return redirect()->back()->with('error', __('Permission denied.'));
+    }
+
+    public function approve(Request $request, $id)
+    {
+        if(\Auth::user()->can('Manage Resignation')) {
+            $resignation = Resignation::findOrFail($id);
+            
+            $validator = \Validator::make($request->all(), [
+                'notice_date' => 'required',
+                'resignation_date' => 'required|after_or_equal:notice_date',
+            ]);
+
+            if($validator->fails()) {
+                return redirect()->back()
+                    ->withErrors($validator)
+                    ->withInput();
+            }
+
+            // Update dates if changed
+            $resignation->update([
+                'notice_date' => $request->notice_date,
+                'resignation_date' => $request->resignation_date,
+                'status' => 'approved',
+                'approved_by' => \Auth::id(),
+                'approved_at' => now(),
+            ]);
+
+            // Send approval email
+            SendResignationApprovalEmail::dispatch($resignation, $resignation->employee->email)
+                ->onQueue('emails');
+            return redirect()->route('resignation.index')
+                ->with('success', __('Resignation approved successfully.'));
+        }
+        return redirect()->back()->with('error', __('Permission denied.'));
     }
 }

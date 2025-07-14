@@ -80,7 +80,7 @@ class LoanController extends Controller
 
             // Create deduction records for each month
             for ($i = 0; $i < $request->number_of_months; $i++) {
-                $deductionMonth = $startMonth->copy()->addMonths($i)->format('Y-m');
+                $deductionMonth = $startMonth->copy()->addMonths($i)->startOfMonth();
                 
                 LoanDeduction::create([
                     'loan_id' => $loan->id,
@@ -106,6 +106,11 @@ class LoanController extends Controller
         try {
             if(\Auth::user()->can('Show Employee')) {
                 $loan = EmployeeLoan::with(['employee', 'deductions'])->findOrFail($id);
+                
+                // Convert dates to Carbon instances and calculate original end month
+                $loan->start_month = \Carbon\Carbon::parse($loan->start_month);
+                $loan->original_end_month = $loan->start_month->copy()->addMonths($loan->number_of_months - 1);
+                
                 return view('loan.show', compact('loan'));
             }
             return redirect()->back()->with('error', __('Permission denied.'));
@@ -128,137 +133,110 @@ class LoanController extends Controller
         }
     }
 
-    public function updateDeduction(Request $request, LoanDeduction $deduction)
+public function updateDeduction(Request $request, LoanDeduction $deduction)
 {
-
-     \Log::info('Update Deduction Request:', [
-        'deduction_id' => $deduction->id,
-        'input' => $request->all()
-    ]);
-    
-    // Start with detailed logging
-    Log::channel('loan')->info('Starting deduction update', [
-        'deduction_id' => $deduction->id,
-        'user_id' => Auth::id(),
-        'input_data' => $request->all()
-    ]);
-
     if (!\Auth::user()->can('Edit Employee')) {
-        Log::channel('loan')->warning('Permission denied', [
-            'user_id' => Auth::id(),
-            'action' => 'update_deduction'
-        ]);
         return redirect()->back()->with('error', __('Permission denied.'));
     }
 
     DB::beginTransaction();
     try {
-        // Validate input with detailed error logging
-        $validator = \Validator::make($request->all(), [
-            'is_deducted' => 'required|boolean',
-            'remark' => 'nullable|string',
-        ]);
+        $loan = $deduction->loan;
 
-        if ($validator->fails()) {
-            Log::channel('loan')->error('Validation failed', [
-                'errors' => $validator->errors()->all(),
-                'input' => $request->all()
-            ]);
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
-        // Load loan with existence check
-        $loan = $deduction->loan()->first();
-        if (!$loan) {
-            Log::channel('loan')->error('Loan not found', [
-                'deduction_id' => $deduction->id
-            ]);
-            throw new \Exception("Associated loan not found for deduction");
-        }
-
-        Log::channel('loan')->debug('Loan loaded', [
-            'loan_id' => $loan->id,
-            'remaining_amount' => $loan->remaining_amount
-        ]);
-
-        // Update deduction record
-        $updateResult = $deduction->update([
-            'is_deducted' => $request->is_deducted,
-            'remark' => $request->remark,
-        ]);
-
-        if (!$updateResult) {
-            throw new \Exception("Failed to update deduction record");
-        }
-
+        // If admin selects "No Deduction"
         if ($request->is_deducted == false) {
-            // Handle skipped deduction
-            Log::channel('loan')->info('Processing skipped deduction');
-            
-            $updateData = [
-                'extended_months' => $loan->extended_months + 1,
-                'number_of_months' => $loan->number_of_months + 1
-            ];
-            
-            if (!$loan->update($updateData)) {
-                throw new \Exception("Failed to update loan extension data");
+            // Check if already marked as No Deduction
+            if ($deduction->remark === 'No Deduction') {
+                return redirect()->back()->with('error', __('This month is already marked as No Deduction.'));
             }
 
-            $newEndMonth = Carbon::parse($loan->start_month)
-                ->addMonths($loan->number_of_months - 1);
-            
-            Log::channel('loan')->debug('Creating new deduction', [
-                'new_end_month' => $newEndMonth
-            ]);
-
-            $newDeduction = LoanDeduction::create([
-                'loan_id' => $loan->id,
-                'month' => $newEndMonth,
-                'emi_amount' => $loan->monthly_emi,
+            // Mark this deduction as skipped
+            $deduction->update([
                 'is_deducted' => false,
+                'remark' => 'No Deduction',
             ]);
 
-            if (!$newDeduction) {
-                throw new \Exception("Failed to create new deduction record");
-            }
-        } else {
-            // Handle successful deduction
-            Log::channel('loan')->info('Processing successful deduction');
+            // Find the last scheduled deduction month
+            $lastDeduction = $loan->deductions()
+                ->orderBy('month', 'desc')
+                ->first();
+
+            // Create a new deduction in the next month
+            $newMonth = Carbon::parse($lastDeduction->month)->addMonth();
             
-            $newRemaining = $loan->remaining_amount - $deduction->emi_amount;
-            if ($newRemaining < 0) {
-                throw new \Exception("Remaining amount would go negative");
+            LoanDeduction::create([
+                'loan_id' => $loan->id,
+                'month' => $newMonth,
+                'emi_amount' => $deduction->emi_amount,
+                'is_deducted' => false,
+                'remark' => null,
+            ]);
+
+            // Update loan remaining amount and extended status
+            $loan->remaining_amount += $deduction->emi_amount; // Add back the amount
+            $loan->extended_months += 1;
+            $loan->save();
+
+            DB::commit();
+            return redirect()->route('loan.show', $loan->id)
+                ->with('success', __('Deduction successfully deferred to next month.'));
+        } 
+        // If admin switches back to "Yes Deduct"
+        else {
+            // Check if this deduction was previously deferred
+            if ($deduction->remark === 'No Deduction') {
+                // Find the extended deduction (the last one)
+                $lastDeduction = $loan->deductions()
+                    ->orderBy('month', 'desc')
+                    ->first();
+
+                // Only remove if it's not the same as current deduction
+                if ($lastDeduction->id != $deduction->id) {
+                    $lastDeduction->delete();
+                    $loan->extended_months -= 1;
+                }
+
+                // Revert this deduction to normal
+                $deduction->update([
+                    'is_deducted' => true,
+                    'remark' => null,
+                ]);
+                
+                // Update loan remaining amount
+                $loan->remaining_amount -= $deduction->emi_amount;
+            } else {
+                // Just update normally
+                $deduction->update([
+                    'is_deducted' => true,
+                    'remark' => null,
+                ]);
             }
 
-            if (!$loan->decrement('remaining_amount', $deduction->emi_amount)) {
-                throw new \Exception("Failed to update remaining amount");
-            }
+            $loan->save();
+            DB::commit();
+            return redirect()->route('loan.show', $loan->id)
+                ->with('success', __('Deduction status updated successfully.'));
         }
-
-        DB::commit();
-        
-        Log::channel('loan')->info('Deduction updated successfully');
-        return redirect()->route('loan.show', $deduction->loan_id)
-            ->with('success', $request->is_deducted 
-                ? __('Deduction marked as paid.') 
-                : __('Deduction skipped. Loan term extended.'));
-            
     } catch (\Exception $e) {
         DB::rollBack();
-        
-        Log::channel('loan')->error('Deduction update failed', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-            'deduction_id' => $deduction->id,
-            'loan_id' => $loan->id ?? null
-        ]);
-        
-        return redirect()->back()
-            ->with('error', __('Failed to update deduction. Please try again.'))
-            ->withInput();
+        Log::error('Loan deduction update failed: ' . $e->getMessage());
+        Log::error('Stack trace: ' . $e->getTraceAsString());
+        return redirect()->back()->with('error', __('Action failed. Error: ') . $e->getMessage());
     }
 }
+    public function destroy($id)
+    {
+        try {
+            if(\Auth::user()->can('Delete Employee')) {
+                $loan = EmployeeLoan::findOrFail($id);
+                $loan->delete();
+                return redirect()->route('loan.index')->with('success', __('Loan successfully deleted.'));
+            }
+            return redirect()->back()->with('error', __('Permission denied.'));
+        } catch (\Exception $e) {
+            Log::error('LoanController destroy error: ' . $e->getMessage());
+            return redirect()->back()->with('error', __('Failed to delete loan.'));
+        }
+    }
 
 }

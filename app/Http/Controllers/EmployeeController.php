@@ -290,7 +290,7 @@
                 if ($validator->fails()) {
                     return redirect()->back()->withInput()->with('error', $validator->messages()->first());
                 }
-        
+
                 // Process education details
                 $educationDetails = [];
                 $educationImages = [];
@@ -324,7 +324,6 @@
                     }
                 }
 
-        
                 // Process experience details
                 $experienceDetails = [];
                 if ($request->has('experience')) {
@@ -340,7 +339,7 @@
                         }
                     }
                 }
-        
+            
                 $data = [
                     'name' => $request['name'],
                     'dob' => $request['dob'] ?? null,
@@ -360,7 +359,7 @@
                     'week_off_day' => $request['week_off_day'] ?? null,
                     'comp_off_enabled' => $request->has('comp_off_enabled') ? 1 : 0,
                 ];
-        
+            
                 // Update password if provided
                 if (!empty($request->password)) {
                     $data['password'] = Hash::make($request['password']);
@@ -369,7 +368,7 @@
                     $user->password = Hash::make($request['password']);
                     $user->save();
                 }
-        
+            
                 // Handle document uploads
                 if ($request->has('document')) {
                     foreach ($request->document as $docId => $document) {
@@ -390,15 +389,24 @@
                         $employeeDocument->save();
                     }
                 }
-        
+            
                 $employee->update($data);
             
-                return redirect()->route('employee.index')->with('success', __('Employee successfully updated.'));
+                // Determine where to redirect based on user type
+                if (\Auth::user()->hasRole('employee')) {
+                    // Employee gets redirected to their show page
+                    return redirect()->route('employee.show', \Illuminate\Support\Facades\Crypt::encrypt($employee->id))
+                        ->with('success', __('Employee successfully updated.'));
+                } else {
+                    // HR/Company gets redirected to index
+                    return redirect()->route('employee.index')
+                        ->with('success', __('Employee successfully updated.'));
+                }
             } else {
                 return redirect()->back()->with('error', __('Permission denied.'));
             }
         }
-        
+                
     
 
         public function destroy($id)

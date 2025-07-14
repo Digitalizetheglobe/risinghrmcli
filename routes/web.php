@@ -169,6 +169,12 @@ Route::get('/check-compoff/{employee_id}', function($employeeId) {
 
 Route::get('/backfill-comp-offs', [\App\Http\Controllers\BackfillController::class, 'run']);
 
+Route::group(['middleware' => ['auth']], function () {
+    Route::resource('resignation', ResignationController::class);
+    Route::post('resignation/{id}/approve', [ResignationController::class, 'approve'])->name('resignation.approve');
+    Route::get('resignation/{id}/review', [ResignationController::class, 'review'])->name('resignation.review');
+});
+
 
 Route::group(['middleware' => ['auth', 'verified']], function() {
     // Loan Management Routes
@@ -178,8 +184,9 @@ Route::group(['middleware' => ['auth', 'verified']], function() {
         Route::post('/store', [LoanController::class, 'store'])->name('store');
         Route::get('/show/{loan}', [LoanController::class, 'show'])->name('show');
         Route::get('/deduction/{deduction}/edit', [LoanController::class, 'editDeduction'])->name('deduction.edit');
-Route::put('/deduction/{deduction}/update', [LoanController::class, 'updateDeduction'])
-    ->name('deduction.update');    });
+        Route::delete('/{loan}', [LoanController::class, 'destroy'])->name('destroy');
+        Route::put('/deduction/{deduction}/update', [LoanController::class, 'updateDeduction'])
+            ->name('deduction.update');    });
 });
 
 Route::any('/hrm/loan/deduction/{id}/update', function($id) {

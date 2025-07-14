@@ -6,7 +6,6 @@
 <?php $__env->stopSection(); ?>
 <?php $__env->startSection('breadcrumb'); ?>
     <li class="breadcrumb-item"><a href="<?php echo e(route('dashboard')); ?>"><?php echo e(__('Home')); ?></a></li>
-    <li class="breadcrumb-item"><a href="<?php echo e(url('employee')); ?>"><?php echo e(__('Employee')); ?></a></li>
     <li class="breadcrumb-item"><?php echo e(__('Manage Employee')); ?></li>
 <?php $__env->stopSection(); ?>
 
@@ -78,6 +77,14 @@
                     </div>
                 </li>
             </ul>
+
+        <div class="m-3">
+            <a href="<?php echo e(route('employee.edit', \Illuminate\Support\Facades\Crypt::encrypt($employee->id))); ?>" class="btn btn-sm btn-primary">
+                <i class="ti ti-edit"></i> <?php echo e(__('Edit Details')); ?>
+
+            </a>
+        </div>
+
         </div>
     </div>
 <?php $__env->stopSection(); ?>

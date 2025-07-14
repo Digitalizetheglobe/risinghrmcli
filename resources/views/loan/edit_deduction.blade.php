@@ -29,8 +29,14 @@
                         <div class="form-group col-md-6">
                             <label class="form-label">{{ __('Deduct this month?') }}</label>
                             <select class="form-control" name="is_deducted" required>
-                                <option value="1" {{ $deduction->is_deducted ? 'selected' : '' }}>{{ __('Yes, deduct as scheduled') }}</option>
-                                <option value="0" {{ !$deduction->is_deducted ? 'selected' : '' }}>{{ __('No, defer this deduction') }}</option>
+                                <option value="1" {{ $deduction->is_deducted ? 'selected' : '' }}>
+                                    {{ __('Yes, deduct as scheduled') }}
+                                </option>
+                                <option value="0" 
+                                    {{ $deduction->remark === 'No Deduction' ? 'disabled selected' : '' }}
+                                    {{ !$deduction->is_deducted && $deduction->remark !== 'No Deduction' ? 'selected' : '' }}>
+                                    {{ $deduction->remark === 'No Deduction' ? 'Already marked as No Deduction' : __('No, defer this deduction') }}
+                                </option>
                             </select>
                         </div>
                         <div class="form-group col-md-6">

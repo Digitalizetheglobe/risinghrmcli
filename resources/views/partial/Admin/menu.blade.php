@@ -176,7 +176,6 @@
                                 </span>
                         <span class="dash-mtext">{{ __('Employee') }}</span>
                     </a>
-
                 </li>
             @else
                 <li class="dash-item {{ Request::segment(1) == 'employee' ? 'active' : '' }}">
@@ -258,7 +257,7 @@
                 </li>
 
 
-            @if(auth()->user()->type == 'employee' || auth()->user()->can('Manage Employee'))
+            @if (\Auth::user()->type == 'company')
                 <li class="dash-item {{ Request::segment(1) == 'loan' ? 'active' : '' }}">
                     <a href="{{ route('loan.index') }}" class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg flex items-center space-x-2">
                         <span class="dash-micon text-white text-[30px] shadow-none" style="background: none;">
@@ -269,13 +268,24 @@
                 </li>
             @endif
 
-    
-            
-
-            
-
-
-
+                <li
+                    class="dash-item dash-hasmenu {{ Request::segment(1) == 'setsalary' ? 'dash-trigger active' : '' }}">
+                    <a href="#!" class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg flex items-center space-x-2"><span class="dash-micon text-white text-[30px] shadow-none" style="background: none;">
+                            <i class="fas fa-user-slash text-white text-[30px]"></i>
+                          </span><span
+                            class="dash-mtext">{{ __('Offboard ') }}</span><span class="dash-arrow"><i
+                                data-feather="chevron-right"></i></span></a>
+                    <ul class="dash-submenu">
+                        <li class="dash-item">
+                            <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg"
+                                href="{{ route('resignation.index') }}">{{ __('Resignation ') }}</a>
+                        </li>
+                        <li class="dash-item">
+                            <a class="dash-link text-white hover:text-white hover:bg-[#001a3b] text-lg"
+                                href="{{ route('termination.index') }}">{{ __('Exit Formalities') }}</a>
+                        </li>
+                    </ul>
+                </li>
 
             <!-- payroll-->
             @if (Gate::check('Manage Set Salary') || Gate::check('Manage Pay Slip'))

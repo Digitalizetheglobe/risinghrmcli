@@ -32,4 +32,38 @@ class EmployeeLoan extends Model
         return $this->hasMany(LoanDeduction::class, 'loan_id'); // ✅ correct column name
     }
 
+        protected static function booted()
+        {
+            static::saving(function ($loan) {
+                // Use where('is_deducted', true) instead of where('is_deducted', 1)
+                $deducted = $loan->deductions()->where('is_deducted', true)->sum('emi_amount');
+                $loan->remaining_amount = $loan->total_amount - $deducted;
+            });
+            
+            // Add this to update when deductions change
+            static::updated(function ($loan) {
+                if ($loan->isDirty('remaining_amount')) {
+                    $loan->calculateRemainingAmount()->save();
+                }
+            });
+        }
+
+        // Make sure this method is used consistently
+        public function calculateRemainingAmount()
+        {
+            $totalDeducted = $this->deductions()
+                ->where('is_deducted', true)
+                ->sum('emi_amount');
+            
+            $this->remaining_amount = $this->total_amount - $totalDeducted;
+            return $this;
+        }
+
+        public function scopeWithDeductions($query)
+        {
+            return $query->with(['deductions' => function($q) {
+                $q->orderBy('month', 'asc');
+            }]);
+        }
+
 }

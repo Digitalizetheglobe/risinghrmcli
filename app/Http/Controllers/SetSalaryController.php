@@ -194,7 +194,7 @@ class SetSalaryController extends Controller
             [
                 'salary_type' => 'required',
                 'salary' => 'required',
-                'account_type' => 'required',
+                'account_type' => 'nullable|exists:account_lists,id',
             ]
         );
         if ($validator->fails()) {

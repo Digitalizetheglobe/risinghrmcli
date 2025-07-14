@@ -1902,7 +1902,7 @@ class User extends Authenticatable implements MustVerifyEmail
                     <p>Betrachtet,</p>
                     <p>Personalabteilung,</p>
                     <p>{app_name}</p>',
-                    'en' => '<p><strong>Subject:-HR department/Company to send termination letter.</strong></p>
+                    'en' => '<p><strong>Subject:-HR department/Company to send termination</strong></p>
                     <p><strong>Dear {employee_termination_name},</strong></p>
                     <p>This letter is written to notify you that your employment with our company is terminated.</p>
                     <p>More detail about termination:</p>

@@ -42,7 +42,10 @@
                                     <td><?php echo e(\Auth::user()->priceFormat($loan->total_amount)); ?></td>
                                     <td><?php echo e(\Auth::user()->priceFormat($loan->monthly_emi)); ?></td>
                                     <td><?php echo e($loan->number_of_months); ?></td>
-                                    <td><?php echo e(\Auth::user()->priceFormat($loan->remaining_amount)); ?></td>
+                                    <td class="<?php echo e($loan->remaining_amount > 0 ? 'text-warning' : 'text-success'); ?>">
+                                        <?php echo e(\Auth::user()->priceFormat($loan->remaining_amount)); ?>
+
+                                    </td>
                                     <td><?php echo e(\Auth::user()->dateFormat($loan->start_month)); ?></td>
                                     <td class="Action">
                                                 <span>
@@ -51,18 +54,24 @@
                                                             <i class="ti ti-eye"></i>
                                                         </a>
                                                     <?php endif; ?>
-                                                    
-                                                   <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Edit Employee')): ?>
-                                                        <?php if($loan->deductions->isNotEmpty()): ?>
-                                                            <div class="action-btn bg-info ms-2">
-                                                                <a href="<?php echo e(route('loan.deduction.edit', $loan->deductions->first()->id)); ?>" 
-                                                                    class="mx-3 btn btn-sm align-items-center" 
-                                                                    data-bs-toggle="tooltip" 
-                                                                    title="<?php echo e(__('Edit')); ?>">
-                                                                    <i class="ti ti-pencil text-white"></i>
+
+                                                    <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Delete Employee')): ?>
+                                                            <div class="action-btn bg-danger ms-2">
+                                                                <?php echo Form::open([
+                                                                    'method' => 'DELETE',
+                                                                    'route' => ['loan.destroy', $loan->id],
+                                                                    'id' => 'delete-form-' . $loan->id,
+                                                                ]); ?>
+
+                                                                <a href="#"
+                                                                    class="mx-3 btn btn-sm align-items-center bs-pass-para"
+                                                                    data-bs-toggle="tooltip" title=""
+                                                                    data-bs-original-title="Delete" aria-label="Delete">
+                                                                    <i class="ti ti-trash text-white"></i>
                                                                 </a>
+                                                                <?php echo Form::close(); ?>
+
                                                             </div>
-                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                 </span>
                                             </td>

@@ -21,6 +21,7 @@ class Kernel extends HttpKernel
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
+        
     ];
 
     /**
@@ -66,6 +67,8 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'XSS' => \App\Http\Middleware\XSS::class,
         'CheckPlan' => \App\Http\Middleware\CheckPlan::class,
-        'Pusher' => \App\Http\Middleware\getPusherSettings::class
+        'Pusher' => \App\Http\Middleware\getPusherSettings::class,
+        'check.termination' => \App\Http\Middleware\CheckTerminationStatus::class
+
     ];
 }

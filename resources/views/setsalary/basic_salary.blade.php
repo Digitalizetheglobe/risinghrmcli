@@ -9,10 +9,10 @@
             {{ Form::label('salary', __('Salary'), ['class' => 'col-form-label']) }}
             {{ Form::number('salary', null, ['class' => 'form-control ', 'required' => 'required']) }}
         </div>
-        <div class="form-group">
+        <!-- <div class="form-group">
             {{ Form::label('account_type', __('From Account'), ['class' => 'col-form-label']) }}<span class="text-danger pl-1">*</span>
             {{ Form::select('account_type', $accounts, null, ['class' => 'form-control', 'required' => 'required']) }}
-        </div>
+        </div> -->
     </div>
 </div>
 <div class="modal-footer">

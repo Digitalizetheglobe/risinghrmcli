@@ -171,7 +171,7 @@ $logo=\App\Models\Utility::get_file('uploads/logo/');
                                                     <tr>
                                                         <td align="left" style="font-size:0px;padding:0px 25px 0px 25px;padding-top:0px;padding-right:50px;padding-bottom:0px;padding-left:50px;word-break:break-word;">
                                                             <div style="font-family:Open Sans, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;text-align:left;color:#797e82;">
-                                                                <p style=" line-height:32px"><b style="font-weight:700">{{__('Subject : ').'HR department/Company to send termination letter.'}}</b></p>
+                                                                <p style=" line-height:32px"><b style="font-weight:700">{{__('Subject : ').'Confirmation of Final Working Day.'}}</b></p>
                                                                 <p style="line-height:32px"><b style="font-weight:700">{{__('Dear ').$termination->name.','}}</b></p>
                                                             </div>
                                                         </td>
@@ -180,7 +180,7 @@ $logo=\App\Models\Utility::get_file('uploads/logo/');
                                                     <tr>
                                                         <td align="left" style="font-size:0px;padding:0px 25px 0px 25px;padding-top:0px;padding-right:50px;padding-bottom:0px;padding-left:50px;word-break:break-word;">
                                                             <div style="font-family:Open Sans, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;text-align:left;color:#797e82;">
-                                                                <p style="margin: 10px 0;">{{__('This letter is written to notify you that your employment with our company is terminated.')}}</p>
+                                                                <p style="margin: 10px 0;">{{__('This email is to formally inform you that your final working day with Rising Spaces has been confirmed.')}}</p>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -188,10 +188,9 @@ $logo=\App\Models\Utility::get_file('uploads/logo/');
                                                     <tr>
                                                         <td align="left" style="font-size:0px;padding:0px 25px 0px 25px;padding-top:0px;padding-right:50px;padding-bottom:0px;padding-left:50px;word-break:break-word;">
                                                             <div style="font-family:Open Sans, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;text-align:left;color:#797e82;">
-                                                                <p style="margin: 10px 0;">{{__('More detail about termination ')}}</p>
+                                                                <p style="margin: 10px 0;">{{__('More detail  ')}}</p>
                                                                 <p style="margin: 10px 0;">{{__('Notice Date : '.$termination->notice_date)}}</p>
-                                                                <p style="margin: 10px 0;">{{__('Termination Date : '.$termination->termination_date)}}</p>
-                                                                <p style="margin: 10px 0;">{{__('Termination Type: '.$termination->type)}}</p>
+                                                                <p style="margin: 10px 0;">{{__('Last Working Date : '.$termination->termination_date)}}</p>
                                                             </div>
                                                         </td>
                                                     </tr>

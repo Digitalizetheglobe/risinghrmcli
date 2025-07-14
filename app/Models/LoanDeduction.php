@@ -14,16 +14,30 @@ class LoanDeduction extends Model
         'month',
         'emi_amount',
         'is_deducted',
-        'remark'
+        'remark',
+        'moved_from_id', // Add this field
+
     ];
 
     protected $dates = [
         'month'
     ];
 
-   public function loan()
-{
-    return $this->belongsTo(EmployeeLoan::class, 'loan_id');
-}
+    public function loan()
+    {
+        return $this->belongsTo(EmployeeLoan::class, 'loan_id');
+    }
+
+    // In LoanDeduction.php
+    protected static function booted()
+    {
+        static::saved(function ($deduction) {
+            $deduction->loan->calculateRemainingAmount()->save();
+        });
+        
+        static::deleted(function ($deduction) {
+            $deduction->loan->calculateRemainingAmount()->save();
+        });
+    }
 
 }

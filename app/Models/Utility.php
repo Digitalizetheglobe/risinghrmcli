@@ -2597,7 +2597,7 @@ class Utility extends Model
             'employee_termination' => [
                 'subject' => 'Employee Termination',
                 'lang' => [
-                    'en' => '<p><strong>Subject:-HR department/Company to send termination letter.</strong></p>
+                    'en' => '<p><strong>Subject:-HR department/Company to send termination</strong></p>
                     <p><strong>Dear {employee_termination_name},</strong></p>
                     <p>This letter is written to notify you that your employment with our company is terminated.</p>
                     <p>More detail about termination:</p>

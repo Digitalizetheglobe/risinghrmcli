@@ -5,7 +5,6 @@
 @endsection
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">{{ __('Home') }}</a></li>
-    <li class="breadcrumb-item"><a href="{{ url('employee') }}">{{ __('Employee') }}</a></li>
     <li class="breadcrumb-item">{{ __('Manage Employee') }}</li>
 @endsection
 
@@ -74,6 +73,13 @@
                     </div>
                 </li>
             </ul>
+
+        <div class="m-3">
+            <a href="{{ route('employee.edit', \Illuminate\Support\Facades\Crypt::encrypt($employee->id)) }}" class="btn btn-sm btn-primary">
+                <i class="ti ti-edit"></i> {{ __('Edit Details') }}
+            </a>
+        </div>
+
         </div>
     </div>
 @endsection

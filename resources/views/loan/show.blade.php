@@ -26,7 +26,12 @@
                         </div>
                         <div class="col-md-6">
                             <p><strong>{{ __('Number of Months') }}:</strong> {{ $loan->number_of_months }}</p>
-                            <p><strong>{{ __('Remaining Amount') }}:</strong> {{ \Auth::user()->priceFormat($loan->remaining_amount) }}</p>
+                            <p><strong>{{ __('Remaining Amount') }}:</strong> 
+                            {{ \Auth::user()->priceFormat($loan->remaining_amount) }}
+                            <small class="text-muted">
+                                (Deducted: {{ \Auth::user()->priceFormat($loan->total_amount - $loan->remaining_amount) }})
+                            </small>
+                            </p>
                             <p><strong>{{ __('Start Month') }}:</strong> {{ \Auth::user()->dateFormat($loan->start_month) }}</p>
                         </div>
                         @if($loan->reason)
@@ -61,15 +66,21 @@
                                     <tr>
                                         <td>
                                             {{ \Auth::user()->dateFormat($deduction->month) }}
-                                            @if($loan->extended_months > 0)
-    <div class="alert alert-info">
-        <strong>Note:</strong> This loan has been extended by {{ $loan->extended_months }} month(s) due to skipped payments.
-    </div>
-@endif
+                                            @php
+                                                $startMonth = \Carbon\Carbon::parse($loan->start_month);
+                                                $deductionMonth = \Carbon\Carbon::parse($deduction->month);
+                                                $originalEndMonth = $startMonth->copy()->addMonths($loan->number_of_months - 1);
+                                            @endphp
+                                            
+                                            @if($deductionMonth > $originalEndMonth)
+                                                <span class="badge bg-info ms-2">Extended</span>
+                                            @endif
                                         </td>
                                         <td>{{ \Auth::user()->priceFormat($deduction->emi_amount) }}</td>
                                         <td>
-                                            @if($deduction->is_deducted)
+                                            @if($deduction->remark === 'No Deduction')
+                                                <span class="badge bg-danger">{{ __('No Deduction') }}</span>
+                                            @elseif($deduction->is_deducted)
                                                 <span class="badge bg-success">{{ __('Deducted') }}</span>
                                             @else
                                                 <span class="badge bg-warning">{{ __('Pending') }}</span>
