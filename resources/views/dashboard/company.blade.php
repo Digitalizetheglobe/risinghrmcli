@@ -309,7 +309,7 @@
                                 <div class="card">
                                     <div class="card-header card-body table-border-style d-flex flex-wrap justify-content-between align-items-center">
                                         <h5 class="mb-2 mb-md-0" style="font-size:20px; color:black; margin: 0;">
-                                            {{ __('Not Clock In employees') }}
+                                            {{ __('Yet To Arrive ') }}
                                         </h5>
                                        
                                     </div>
@@ -535,7 +535,7 @@
 
                         <div class="card flex-grow-1">
                             <div class="card-header">
-                                <h5 style="font-size:20px;color:black">{{ __("This Month Event's") }}</h5>
+                                <h5 style="font-size:20px;color:black">{{ __("Event Of The Month") }}</h5>
                             </div>
                             <div class="card-body">
                                 <div class="card shadow-none mt-3">

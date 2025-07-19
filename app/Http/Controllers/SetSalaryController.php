@@ -14,8 +14,11 @@ use App\Models\OtherPayment;
 use App\Models\Overtime;
 use App\Models\PayslipType;
 use App\Models\SaturationDeduction;
+use App\Models\IncrementLetter;
+use App\Models\SalaryIncrement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class SetSalaryController extends Controller
 {
@@ -228,4 +231,110 @@ class SetSalaryController extends Controller
 
         return view('setsalary.basic_salary', compact('employee', 'payslip_type', 'accounts'));
     }
+
+    public function showIncrementForm($employee_id)
+    {
+        $employee = Employee::findOrFail($employee_id);
+        return view('setsalary.increment_form', compact('employee'));
+    }
+
+    public function storeIncrement(Request $request, $employee_id)
+    {
+        $employee = Employee::findOrFail($employee_id);
+
+        $request->validate([
+            'new_salary' => 'required|numeric|min:0',
+            'month_of_effective_date' => 'required|date',
+        ]);
+
+        $old_salary = $employee->salary;
+        $new_salary = $request->new_salary;
+        $increment_amount = $new_salary - $old_salary;
+
+        // Save increment record
+        $increment = SalaryIncrement::create([
+            'employee_id' => $employee->id,
+            'old_salary' => $old_salary,
+            'new_salary' => $new_salary,
+            'increment_amount' => $increment_amount,
+            'month_of_effective_date' => $request->month_of_effective_date,
+            'created_by' => auth()->id(),
+        ]);
+
+        // Update employee salary
+        $employee->salary = $new_salary;
+        $employee->save();
+
+        return redirect()->back()->with('success', 'Salary incremented successfully.');
+    }
+
+    public function incrementLetterPdf($id)
+    {
+        // Get the increment data (adapt from your existing downloadIncrementLetter method)
+        $increment = SalaryIncrement::find($id);
+        $employee = $increment->employee;
+        $app_name = env('APP_NAME');
+        $date = date('d-m-Y'); // or your preferred format
+
+        // Get the increment letter template (you'll need to create this)
+        $incrementLetter = IncrementLetter::where('created_by', \Auth::user()->creatorId())
+                                        ->where('lang', \Auth::user()->currentLanguage())
+                                        ->first();
+
+        // Prepare content with variables
+        $content = IncrementLetter::replaceVariable($incrementLetter->content, [
+            'employee_name' => $employee->name,
+            'designation' => $employee->designation->name ?? '',
+            'department' => $employee->department->name ?? '',
+            'date' => $date,
+            'app_name' => $app_name,
+            'old_salary' => $increment->old_salary,
+            'new_salary' => $increment->new_salary,
+            'increment_amount' => $increment->increment_amount,
+            'month_of_effective_date' => $increment->month_of_effective_date
+        ]);
+
+        return view('setsalary.increment_letter_pdf', [
+            'content' => $content,
+            'employee' => $employee,
+            'increment' => $increment,
+            'app_name' => $app_name,
+            'date' => $date
+        ]);
+    }
+
+    public function incrementLetterDoc($id)
+    {
+        // Same logic as above but return DOC view
+        $increment = SalaryIncrement::find($id);
+        $employee = $increment->employee;
+        $app_name = env('APP_NAME');
+        $date = date('d-m-Y');
+
+        $incrementLetter = IncrementLetter::where('created_by', \Auth::user()->creatorId())
+                                        ->where('lang', \Auth::user()->currentLanguage())
+                                        ->first();
+
+        $content = IncrementLetter::replaceVariable($incrementLetter->content, [
+            'employee_name' => $employee->name,
+            'designation' => $employee->designation->name ?? '',
+            'department' => $employee->department->name ?? '',
+            'date' => $date,
+            'app_name' => $app_name,
+            'old_salary' => $increment->old_salary,
+            'new_salary' => $increment->new_salary,
+            'increment_amount' => $increment->increment_amount,
+            'month_of_effective_date' => $increment->month_of_effective_date
+        ]);
+
+        return view('setsalary.increment_letter_doc', [
+            'content' => $content,
+            'employee' => $employee,
+            'increment' => $increment,
+            'app_name' => $app_name,
+            'date' => $date
+        ]);
+    }
+
+
 }

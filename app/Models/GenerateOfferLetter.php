@@ -31,6 +31,7 @@ class GenerateOfferLetter extends Model
             '{salary_duration}',
             '{next_pay_period}',
             '{offer_expiration_date}',
+            '{offer_date}',
 
       
         ];
@@ -47,9 +48,9 @@ class GenerateOfferLetter extends Model
             'salary_duration' => '-',
             'next_pay_period' => '-',
             'offer_expiration_date' => '-',
+            'offer_date' => '-',
 
         ];
-
         foreach($obj as $key => $val)
         {
             $arrValue[$key] = $val;

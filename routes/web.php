@@ -175,6 +175,18 @@ Route::group(['middleware' => ['auth']], function () {
     Route::get('resignation/{id}/review', [ResignationController::class, 'review'])->name('resignation.review');
 });
 
+Route::middleware(['auth'])->group(function () {
+    Route::get('salary-increment/{employee_id}/form', [SetSalaryController::class, 'showIncrementForm'])->name('salary-increment.form');
+    Route::post('salary-increment/{employee_id}/store', [SetSalaryController::class, 'storeIncrement'])->name('salary-increment.store');
+    Route::get('/salary-increment/{id}/pdf', [SetSalaryController::class, 'incrementLetterPdf'])
+        ->name('salary-increment.pdf');
+
+    Route::get('/salary-increment/{id}/doc', [SetSalaryController::class, 'incrementLetterDoc'])
+        ->name('salary-increment.doc');
+    Route::get('incrementletter-lang/{incrementlangs}', [SettingsController::class, 'getIncrementletterLang'])->name('get.incrementletter.language');
+    Route::post('incrementletter-update/{lang}', [SettingsController::class, 'incrementletterUpdate'])->name('incrementletter.update');
+});
+
 
 Route::group(['middleware' => ['auth', 'verified']], function() {
     // Loan Management Routes
@@ -676,12 +688,16 @@ Route::group(['middleware' => ['verified']], function () {
             'XSS',
         ]
     );
-    Route::get('termination/{id}/description', [TerminationController::class, 'description'])->name('termination.description');
 
+
+
+
+    Route::get('termination/{id}/description', [TerminationController::class, 'description'])->name('termination.description')->middleware(['auth', 'XSS', 'check.termination']);
     Route::resource('termination', TerminationController::class)->middleware(
         [
             'auth',
             'XSS',
+            'check.termination'
         ]
     );
     Route::resource('terminationtype', TerminationTypeController::class)->middleware(

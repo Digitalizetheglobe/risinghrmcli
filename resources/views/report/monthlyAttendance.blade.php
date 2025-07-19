@@ -9,10 +9,6 @@
     <li class="breadcrumb-item">{{ __('Manage Monthly Attendance Report') }}</li>
 @endsection
 @section('action-button')
-    <a href="#" class="btn btn-sm btn-primary" onclick="saveAsPDF()" data-bs-toggle="tooltip" title="{{ __('Download') }}"
-        data-original-title="{{ __('Download') }}">
-        <span class="btn-inner--icon"><i class="ti ti-download"></i></span>
-    </a>
 
     @php
         $emp = isset($_GET['employee_id']) && !empty($_GET['employee_id']) ? $_GET['employee_id'] : [];
@@ -29,9 +25,8 @@
     <!-- ... other buttons ... -->
 
     {{-- Updated Export Button --}}
-    <a href="#" id="exportBtn" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" title="{{ __('Export') }}"
-        data-original-title="{{ __('Export') }}">
-        <span class="btn-inner--icon"><i class="ti ti-file-export"></i></span>
+    <a href="#" id="exportBtn" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" title="{{ __('Export to Excel') }}">
+        <span class="btn-inner--icon"><i class="ti ti-file-export"></i></span> {{ __('Export to Excel') }}
     </a>
 @endsection
 
@@ -68,31 +63,24 @@
 
         // New Excel Export function with error handling
         function exportToExcel() {
+            // Use the displayed month, not just the filter input
+            var displayedMonth = $('#displayed_month').val();
+            if (!displayedMonth) {
+                alert('No month selected');
+                return;
+            }
             try {
-                // Get the table element
-                var table = document.querySelector('.attendance-table-responsive table');
-                
-                if (!table) {
-                    console.error('Table not found');
-                    alert('Error: Could not find attendance data table');
-                    return;
-                }
-                
-                // Create workbook
-                var wb = XLSX.utils.book_new();
-                
-                // Convert table to worksheet
-                var ws = XLSX.utils.table_to_sheet(table);
-                
-                // Add worksheet to workbook
-                XLSX.utils.book_append_sheet(wb, ws, "Attendance");
-                
-                // Generate file name
-                var fileName = filename + '.xlsx';
-                
-                // Export the workbook
-                XLSX.writeFile(wb, fileName);
-                
+                // Get other filter values
+                var branch = $('#branch_id').val() || 0;
+                var department = $('#department_id').val() || 0;
+                var employee = $('#employee_id').val() ? $('#employee_id').val().join(',') : 0;
+                // Build the export URL
+                var url = "{{ route('report.attendance', ['month' => 'MONTH', 'branch' => 'BRANCH', 'department' => 'DEPARTMENT', 'employee' => 'EMPLOYEE']) }}";
+                url = url.replace('MONTH', encodeURIComponent(displayedMonth));
+                url = url.replace('BRANCH', branch);
+                url = url.replace('DEPARTMENT', department);
+                url = url.replace('EMPLOYEE', employee);
+                window.location.href = url;
             } catch (error) {
                 console.error('Export error:', error);
                 alert('Error during export: ' + error.message);
@@ -116,14 +104,15 @@
                 <div class="card">
                     <div class="card-body">
                         {{ Form::open(['route' => ['report.monthly.attendance'], 'method' => 'get', 'id' => 'report_monthly_attendance']) }}
+                        <!-- Add hidden input for displayed month -->
+                        <input type="hidden" id="displayed_month" value="{{ isset($_GET['month']) ? $_GET['month'] : \Carbon\Carbon::now()->format('Y-m') }}">
                         <div class="row align-items-center justify-content-end">
                             <div class="col-xl-10">
                                 <div class="row">
                                     <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12 col-12">
                                         <div class="btn-box">
                                             {{ Form::label('month', __(' Month'), ['class' => 'form-label']) }}
-                                            {{ Form::month('month', isset($_GET['month']) ? $_GET['month'] : '', ['class' => 'month-btn form-control current_date', 'autocomplete' => 'off', 'placeholder' => 'Select month']) }}
-                                        </div>
+                                            {{ Form::month('month', isset($_GET['month']) ? $_GET['month'] : '', ['class' => 'month-btn form-control current_date', 'autocomplete' => 'off', 'placeholder' => 'Select month']) }}                                        </div>
                                     </div>
                                     <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12 col-12">
                                         <div class="btn-box">
@@ -181,18 +170,33 @@
         <div class="col">
             <div class="card">
                 <div class="card-header">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <div class="me-3 d-flex align-items-center">
-                            <div class="color-indicator present me-2"></div>
-                            <span>Present</span>
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <!-- Left Side: Status Indicators -->
+                        <div class="d-flex align-items-center flex-wrap">
+                            <div class="me-3 d-flex align-items-center">
+                                <div class="color-indicator present me-2"></div>
+                                <span>Present</span>
+                            </div>
+                            <div class="me-3 d-flex align-items-center">
+                                <div class="color-indicator absent me-2"></div>
+                                <span>Absent</span>
+                            </div>
+                            <div class="me-3 d-flex align-items-center">
+                                <div class="color-indicator week-off me-2"></div>
+                                <span>Week Off</span>
+                            </div>
+                            <div class="me-3 d-flex align-items-center">
+                                <div class="color-indicator leave me-2"></div>
+                                <span>Leave</span>
+                            </div>
                         </div>
-                        <div class="me-3 d-flex align-items-center">
-                            <div class="color-indicator absent me-2"></div>
-                            <span>Absent</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <div class="color-indicator week-off me-2"></div>
-                            <span>Week Off</span>
+
+                        <!-- Right Side: Selected Month Info -->
+                        <div class="text-end fw-bold">
+                            Selected Attendance Month :
+                            <span class="">
+                                {{ isset($_GET['month']) ? \Carbon\Carbon::parse($_GET['month'])->format('M Y') : \Carbon\Carbon::now()->format('M Y') }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -231,7 +235,9 @@
                                                 @endphp
 
                                                 <td>
-                                                    @if ($isWeekOff && $statusEntry && $statusEntry['status'] == 'P')
+                                                    @if ($dateFormat > date('Y-m-d'))
+                                                        {{-- Future date: show empty cell --}}
+                                                    @elseif ($isWeekOff && $statusEntry && $statusEntry['status'] == 'P')
                                                         {{-- Week off but present --}}
                                                         <span class="badge bg-success p-2 triangle" title="Week Off ({{ $weekOffDay }}) + Present"> </span>
                                                     @elseif ($isWeekOff)
@@ -346,4 +352,29 @@
             $('.current_date').val(today);
         });
     </script>
+
+    <style>
+        .color-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+
+        .color-indicator.present {
+            background-color: #65d943;  /* green */
+        }
+
+        .color-indicator.absent {
+            background-color: #ff3a63;  /* red */
+        }
+
+        .color-indicator.week-off {
+            background-color: #3ec9d6;  /* gray */
+        }
+
+        .color-indicator.leave {
+            background-color: #ffa21d;  /* yellow/orange */
+        }
+
+    </style>
 @endpush

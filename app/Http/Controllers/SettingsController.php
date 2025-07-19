@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\DB;
 // use Artisan;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\EmailTemplate;
-use App\Models\GenerateOfferLetter;
+use App\Models\Generated;
 use App\Models\AppointmentLetter;
 use App\Models\JoiningLetter;
+use App\Models\GenerateOfferLetter;
 use App\Models\ExperienceCertificate;
 use App\Models\NOC;
 use App\Models\Job;
@@ -49,6 +50,11 @@ class SettingsController extends Controller
         } else {
             $noclang = "en";
         }
+        if ($request->incrementlangs) {
+            $incrementlang = $request->incrementlangs;
+        } else {
+            $incrementlang = "en";
+        }
 
         $offerlangName = \App\Models\Languages::where('code', $offerlang)->first();
 
@@ -57,6 +63,8 @@ class SettingsController extends Controller
         $explangName = \App\Models\Languages::where('code', $explang)->first();
 
         $noclangName = \App\Models\Languages::where('code', $noclang)->first();
+
+        $incrementlangName = \App\Models\Languages::where('code', $incrementlang)->first();
 
         $user = \Auth::user();
         if (\Auth::user()->type == 'company' || \Auth::user()->type == 'super admin') {
@@ -101,9 +109,12 @@ class SettingsController extends Controller
                 $noc_certificate = NOC::all();
                 $currnocLang = NOC::where('created_by',  \Auth::user()->id)->where('lang', $noclang)->first();
 
+                $increment_letters = \App\Models\IncrementLetter::all();
+$currIncrementLetterLang = \App\Models\IncrementLetter::where('created_by',  \Auth::user()->id)->where('lang', $incrementlang)->first();
 
 
-                return view('setting.company_settings', compact('settings', 'timezones', 'ips', 'EmailTemplates', 'currOfferletterLang', 'Offerletter', 'offerlang', 'Joiningletter', 'currjoiningletterLang', 'joininglang', 'experience_certificate', 'curr_exp_cetificate_Lang', 'explang', 'noc_certificate', 'currnocLang', 'noclang', 'webhooks', 'offerlangName', 'joininglangName', 'explangName', 'noclangName'));
+
+                return view('setting.company_settings', compact('settings', 'timezones', 'ips', 'EmailTemplates', 'currOfferletterLang', 'Offerletter', 'offerlang', 'Joiningletter', 'currjoiningletterLang', 'joininglang', 'experience_certificate', 'curr_exp_cetificate_Lang', 'explang', 'noc_certificate', 'currnocLang', 'noclang', 'webhooks', 'offerlangName', 'incrementlangName', 'joininglangName', 'explangName', 'noclangName', 'incrementlang', 'increment_letters', 'currIncrementLetterLang'));
             }
         } else {
             return redirect()->back()->with('error', __('Permission denied.'));
@@ -1972,4 +1983,41 @@ class SettingsController extends Controller
             return redirect()->back()->with('success', __('Biometric setting successfully saved.'));
         }
     }
+
+    public function getIncrementletterLang($incrementlangs)
+    {
+        $joininglang = !empty($joininglang) ? $joininglang : 'en';
+        $explang = !empty($explang) ? $explang : 'en';
+        $noclang = !empty($noclang) ? $noclang : 'en';
+        $offerlang = !empty($offerlang) ? $offerlang : 'en';
+        
+        \Session::put('incrementlangs', $incrementlangs);
+        
+        return redirect()->route('settings', [
+            'joininglangs' => $joininglang,
+            'explangs' => $explang,
+            'noclangs' => $noclang,
+            'offerlangs' => $offerlang,
+            'incrementlangs' => $incrementlangs
+        ]);
+    }
+
+    public function incrementletterUpdate($lang, Request $request)
+    {
+        $user = \App\Models\IncrementLetter::updateOrCreate(
+            ['lang' => $lang, 'created_by' => \Auth::user()->id], 
+            ['content' => $request->content]
+        );
+
+        return redirect()->back()->with('success', __('Increment Letter successfully saved.'));
+    }
+
+    public function incrementletterUpdate($lang, Request $request)
+{
+    $user = \App\Models\IncrementLetter::updateOrCreate(
+        ['lang' => $lang, 'created_by' => \Auth::user()->id], 
+        ['content' => $request->content]
+    );
+    return redirect()->back()->with('success', __('Increment Letter successfully saved.'));
+}
 }

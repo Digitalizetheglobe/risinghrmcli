@@ -10,7 +10,7 @@
     <div class="col-lg-10">
         <div class="container">
             <div>
-                <div class="card mt-5" id="printTable" style="margin-left: 180px;margin-right: -57px;">
+                <div class="card mt-5" id="printTable" style=" padding: 100px;">
                 
                     <div class="card-body" id="exportContent">
                             <div class="row invoice-title mt-2">
@@ -19,7 +19,7 @@
                                 </div>
                                 
                                 <p data-v-f2a183a6="" >
-                                    <div>{!!$experience_certificate->content!!}</div>
+                                    <div  style=" padding: 100px;">{!!$experience_certificate->content!!}</div>
                                     {{-- <br>
                                     <div>{!!$contract->contract_description!!}</div> --}}
                                 </p>

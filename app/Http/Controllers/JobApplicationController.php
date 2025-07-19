@@ -640,21 +640,20 @@ class JobApplicationController extends Controller
                 'success' => __('This candidate stage successfully changed.'),
             ],
             200
-        );
+            );
     }
 
     public function offerletterPdf($id)
     {
         $users = \Auth::user();
         $currantLang = $users->currentLanguage();
-        $Offerletter = GenerateOfferLetter::where(['lang' =>   $currantLang, 'created_by' =>  \Auth::user()->creatorId()])->first();
+        $Offerletter = GenerateOfferLetter::where(['lang' => $currantLang, 'created_by' => \Auth::user()->creatorId()])->first();
 
         $job = JobApplication::find($id);
         $Onboard = JobOnBoard::find($id);
         $name = JobApplication::find($Onboard->application);
         $job_title = job::find($name->job);
         $salary = PayslipType::find($Onboard->salary_type);
-
 
         $obj = [
             'applicant_name' => $name->name,
@@ -668,8 +667,9 @@ class JobApplicationController extends Controller
             'salary_type' => !empty($salary->name) ? $salary->name : '',
             'salary_duration' => !empty($Onboard->salary_duration) ? $Onboard->salary_duration : '',
             'offer_expiration_date' => !empty($Onboard->joining_date) ? $Onboard->joining_date : '',
-
+            'offer_date' => now()->format('d-m-Y'), // Current date in day-month-year format
         ];
+        
         $Offerletter->content = GenerateOfferLetter::replaceVariable($Offerletter->content, $obj);
         return view('jobApplication.template.offerletterpdf', compact('Offerletter', 'name'));
     }
@@ -677,8 +677,8 @@ class JobApplicationController extends Controller
     {
         $users = \Auth::user();
         $currantLang = $users->currentLanguage();
-        $Offerletter = GenerateOfferLetter::where(['lang' =>   $currantLang, 'created_by' =>  \Auth::user()->creatorId()])->first();
-        // ['lang' =>   $currantLang,'created_by' =>  \Auth::user()->id]
+        $Offerletter = GenerateOfferLetter::where(['lang' => $currantLang, 'created_by' => \Auth::user()->creatorId()])->first();
+
         $job = JobApplication::find($id);
         $Onboard = JobOnBoard::find($id);
         $name = JobApplication::find($Onboard->application);
@@ -697,8 +697,9 @@ class JobApplicationController extends Controller
             'salary_type' => !empty($salary->name) ? $salary->name : '',
             'salary_duration' => !empty($Onboard->salary_duration) ? $Onboard->salary_duration : '',
             'offer_expiration_date' => !empty($Onboard->joining_date) ? $Onboard->joining_date : '',
-
+            'offer_date' => now()->format('d-m-Y'), // This formats as "16-07-2025"
         ];
+        
         $Offerletter->content = GenerateOfferLetter::replaceVariable($Offerletter->content, $obj);
         return view('jobApplication.template.offerletterdocx', compact('Offerletter', 'name'));
     }

@@ -80,6 +80,17 @@ class TerminationController extends Controller
             $termination->created_by       = \Auth::user()->creatorId();
             $termination->save();
 
+            $employee = Employee::find($request->employee_id);
+            if ($employee && $employee->user) {
+                // You might want to immediately disable the user or wait until termination date
+                // Option 1: Disable immediately
+                // $employee->user->is_active = 0;
+                // $employee->user->save();
+                
+                // Option 2: Let the middleware handle it based on termination date
+            }
+
+
             $setings = Utility::settings();
             if($setings['employee_termination'] == 1)
             {
@@ -159,6 +170,11 @@ class TerminationController extends Controller
                 $termination->termination_date = $request->termination_date;
                 $termination->description      = $request->description;
                 $termination->save();
+
+                $employee = Employee::find($request->employee_id);
+                if ($employee && $employee->user) {
+                    // Same logic as above
+                }
 
                 return redirect()->route('termination.index')->with('success', __('Termination successfully updated.'));
             }

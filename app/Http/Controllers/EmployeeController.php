@@ -13,6 +13,7 @@
     use App\Models\Plan;
     use App\Models\User;
     use App\Models\Utility;
+    use App\Models\Resignation;
     use File;
     use Illuminate\Http\Request;
     use Illuminate\Support\Facades\Auth;
@@ -676,7 +677,6 @@
             $joiningletter->content = JoiningLetter::replaceVariable($joiningletter->content, $obj);
             return view('employee.template.joiningletterdocx', compact('joiningletter', 'employees'));
         }
-
         public function ExpCertificatePdf($id)
         {
             $currantLang = \Cookie::get('LANGUAGE');
@@ -695,8 +695,12 @@
             $diff  = date_diff($date1, $date2);
             $duration = $diff->format("%a days");
 
-            if (!empty($termination->termination_date)) {
+            // Get resignation details if exists
+            $resignation = Resignation::where('employee_id', $id)
+                ->where('created_by', \Auth::user()->creatorId())
+                ->first();
 
+            if (!empty($termination->termination_date)) {
                 $obj = [
                     'date' =>  \Auth::user()->dateFormat($date),
                     'app_name' => env('APP_NAME'),
@@ -704,16 +708,17 @@
                     'payroll' => !empty($employees->salaryType->name) ? $employees->salaryType->name : '',
                     'duration' => $duration,
                     'designation' => !empty($employees->designation->name) ? $employees->designation->name : '',
-
+                    'resignation_date' => $resignation ? \Auth::user()->dateFormat($resignation->notice_date) : '',
+                    'last_working_day' => $resignation ? \Auth::user()->dateFormat($resignation->resignation_date) : '', // Or use another field if different
                 ];
             } else {
                 return redirect()->back()->with('error', __('Termination date is required.'));
             }
 
-
             $experience_certificate->content = ExperienceCertificate::replaceVariable($experience_certificate->content, $obj);
             return view('employee.template.ExpCertificatepdf', compact('experience_certificate', 'employees'));
         }
+
         public function ExpCertificateDoc($id)
         {
             $currantLang = \Cookie::get('LANGUAGE');
@@ -723,23 +728,30 @@
             $termination = Termination::where('employee_id', $id)->where('created_by', \Auth::user()->creatorId())->first();
             $experience_certificate = ExperienceCertificate::where('lang', $currantLang)->where('created_by', \Auth::user()->creatorId())->first();
             $date = date('Y-m-d');
-            $employees = Employee::where('id', $id)->where('created_by', \Auth::user()->creatorId())->first();;
+            $employees = Employee::where('id', $id)->where('created_by', \Auth::user()->creatorId())->first();
             $settings = \App\Models\Utility::settings();
             $secs = strtotime($settings['company_start_time']) - strtotime("00:00");
             $result = date("H:i", strtotime($settings['company_end_time']) - $secs);
             $date1 = date_create($employees->company_doj);
             $date2 = date_create($employees->termination_date);
-            $diff  = date_diff($date1, $date2);
+            $diff = date_diff($date1, $date2);
             $duration = $diff->format("%a days");
+
+            // Get resignation details
+            $resignation = Resignation::where('employee_id', $id)
+                ->where('created_by', \Auth::user()->creatorId())
+                ->first();
+
             if (!empty($termination->termination_date)) {
                 $obj = [
-                    'date' =>  \Auth::user()->dateFormat($date),
+                    'date' => \Auth::user()->dateFormat($date),
                     'app_name' => env('APP_NAME'),
                     'employee_name' => $employees->name,
                     'payroll' => !empty($employees->salaryType->name) ? $employees->salaryType->name : '',
                     'duration' => $duration,
                     'designation' => !empty($employees->designation->name) ? $employees->designation->name : '',
-
+                    'resignation_date' => $resignation ? \Auth::user()->dateFormat($resignation->resignation_date) : '',
+                    'last_working_day' => $resignation ? \Auth::user()->dateFormat($resignation->resignation_date) : '', // Assuming last working day is same as resignation date
                 ];
             } else {
                 return redirect()->back()->with('error', __('Termination date is required.'));

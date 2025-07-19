@@ -97,6 +97,20 @@ class AuthenticatedSessionController extends Controller
             return redirect()->back();
         }
 
+        // Prevent terminated employees from logging in after their termination date
+        if ($user->type == 'employee') {
+            $employee = Employee::where('user_id', $user->id)->first();
+            if ($employee) {
+                $termination = \App\Models\Termination::where('employee_id', $employee->id)
+                    ->where('termination_date', '<=', now()->format('Y-m-d'))
+                    ->first();
+                if ($termination) {
+                    auth()->logout();
+                    return redirect()->route('login')->with('error', __('Your account Is Disabled.'));
+                }
+            }
+        }
+
         $user = \Auth::user();
         if ($user->type == 'company') {
             $plan = plan::find($user->plan);

@@ -18,16 +18,12 @@
                                     {{-- <img  src="{{$img}}" style="max-width: 150px;"/> --}}
                                 </div>
                                 
-                                <p data-v-f2a183a6="">
-                                    <div style="padding: 50px;">
-                                        {!! $Offerletter->content !!}
-                                    </div>      
-                                    {{-- <br>
-                                    <div>{!!$contract->contract_description!!}</div> --}}
-                                </p>
-                        
-
-                        </div>
+                                <div style="padding: 50px;">
+                                    {!! $Offerletter->content !!}
+                                </div>      
+                                {{-- <br>
+                                <div>{!!$contract->contract_description!!}</div> --}}
+                            </div>
                  </div>
             </div>
         </div>

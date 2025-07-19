@@ -20,6 +20,8 @@ use App\Models\LeaveType;
 use App\Models\PaySlip;
 use App\Models\TimeSheet;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Concerns\FromArray;
 
 class ReportController extends Controller
 {
@@ -783,95 +785,129 @@ class ReportController extends Controller
         return $data;
     }
 
-    public function exportCsv($filter_month, $branch, $department, $employee)
+    public function exportCsv($month, $branch, $department, $employee)
     {
+            \Log::info('Exporting attendance report with params:', [
+                'month' => $month,
+                'branch' => $branch,
+                'department' => $department,
+                'employee' => $employee,
+                'request_month' => request()->input('month')
+            ]);
+
+        // Validate month format
+        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+            return redirect()->back()->with('error', 'Invalid month format');
+        }
+
         $data['branch'] = __('All');
         $data['department'] = __('All');
 
-        $employees = Employee::select('id', 'name')->where('created_by', \Auth::user()->creatorId());
+        $employees = Employee::select('id', 'name', 'week_off_day')->where('created_by', \Auth::user()->creatorId());
+        
         if ($branch != 0) {
             $employees->where('branch_id', $branch);
-            $data['branch'] = !empty(Branch::find($branch)) ? Branch::find($branch)->name : '';
+            $data['branch'] = Branch::find($branch)->name ?? '';
         }
 
         if ($department != 0) {
             $employees->where('department_id', $department);
-            $data['department'] = !empty(Department::find($department)) ? Department::find($department)->name : '';
+            $data['department'] = Department::find($department)->name ?? '';
         }
+        
         if ($employee != 0) {
             $employeeIds = explode(',', $employee);
-            $emp = Employee::whereIn('id', $employeeIds);
-        } else {
-            $emp = Employee::where('department_id', $department);
+            $employees->whereIn('id', $employeeIds);
         }
 
-        $employees = $emp->get()->pluck('name', 'id');
+        $employees = $employees->get();
 
-        $currentdate = strtotime($filter_month);
-        $month       = date('m', $currentdate);
-        $year        = date('Y', $currentdate);
-        $data['curMonth']    = date('M-Y', strtotime($filter_month));
+        $monthNum = date('m', strtotime($month));
+        $year = date('Y', strtotime($month));
+        $data['curMonth'] = date('M-Y', strtotime($month));
 
+        $fileName = 'Attendance_Report_' . $data['curMonth'] . '.xlsx';
 
-        $fileName = $data['branch'] . ' ' . __('Branch') . ' ' . $data['curMonth'] . ' ' . __('Attendance Report of') . ' ' . $data['department'] . ' ' . __('Department') . ' ' . '.csv';
-
-        $employeesAttendance = [];
-        $num_of_days = date('t', mktime(0, 0, 0, $month, 1, $year));
+        // Generate all dates for the month
+        $num_of_days = date('t', strtotime($year . '-' . $monthNum . '-01'));
+        $dates = [];
         for ($i = 1; $i <= $num_of_days; $i++) {
-            $dates[] = str_pad($i, 2, '0', STR_PAD_LEFT);
+            $date = str_pad($i, 2, '0', STR_PAD_LEFT);
+            $dateFormat = $year . '-' . $monthNum . '-' . $date;
+            $dayOfWeek = date('D', strtotime($dateFormat));
+            $dates[] = [
+                'date' => $date,
+                'day' => $dayOfWeek,
+                'full_date' => $dateFormat
+            ];
         }
 
-        foreach ($employees as $id => $employee) {
-            $attendances['name'] = $employee;
+        // Prepare data for export
+        $exportData = [];
+        
+        // Header information
+        $exportData[] = ['Attendance Report for', $data['curMonth']];
+        $exportData[] = ['Branch', $data['branch']];
+        $exportData[] = ['Department', $data['department']];
+        $exportData[] = []; // Empty row
+        
+        // Dates header
+        $header = ['Employee Name'];
+        foreach ($dates as $date) {
+            $header[] = $date['date'] . ' ' . $date['day'];
+        }
+        $exportData[] = $header;
 
+        // Employee data
+        foreach ($employees as $employee) {
+            $row = [$employee->name];
+            
             foreach ($dates as $date) {
-                $dateFormat = $year . '-' . $month . '-' . $date;
-
-                if ($dateFormat <= date('Y-m-d')) {
-                    $employeeAttendance = AttendanceEmployee::where('employee_id', $id)->where('date', $dateFormat)->first();
-
-                    if (!empty($employeeAttendance) && $employeeAttendance->status == 'Present') {
-                        $attendanceStatus[$date] = 'P';
-                    } elseif (!empty($employeeAttendance) && $employeeAttendance->status == 'Leave') {
-                        $attendanceStatus[$date] = 'A';
-                    } else {
-                        $attendanceStatus[$date] = '-';
-                    }
-                } else {
-                    $attendanceStatus[$date] = '-';
+                $dateFormat = $date['full_date'];
+                $status = '';
+                
+                // Check if date is in future
+                if ($dateFormat > date('Y-m-d')) {
+                    $row[] = '';
+                    continue;
                 }
-                $attendances[$date] = $attendanceStatus[$date];
-            }
 
-            $employeesAttendance[] = $attendances;
+                // Check for week off
+                if ($employee->week_off_day && strtolower($date['day']) == strtolower($employee->week_off_day)) {
+                    $row[] = 'Week Off';
+                    continue;
+                }
+
+                // Check attendance
+                $attendance = AttendanceEmployee::where('employee_id', $employee->id)
+                    ->where('date', $dateFormat)
+                    ->first();
+
+                if ($attendance) {
+                    $status = $attendance->status;
+                } else {
+                    $status = 'Absent';
+                }
+                
+                $row[] = $status;
+            }
+            
+            $exportData[] = $row;
         }
 
-        $headers = array(
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0",
-        );
-        $emp = array(
-            'employee',
-        );
+        return Excel::download(new class($exportData) implements FromArray {
+            private $data;
 
-        $columns = array_merge($emp, $dates);
-
-        $callback = function () use ($employeesAttendance, $columns) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
-
-            foreach ($employeesAttendance as $attendance) {
-                fputcsv($file, str_replace('"', '', array_values($attendance)));
+            public function __construct($data)
+            {
+                $this->data = $data;
             }
 
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+            public function array(): array
+            {
+                return $this->data;
+            }
+        }, $fileName);
     }
 
     public function getdepartment(Request $request)

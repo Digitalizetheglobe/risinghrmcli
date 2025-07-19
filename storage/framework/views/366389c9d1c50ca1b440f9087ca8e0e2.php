@@ -13,11 +13,9 @@
 
 <?php $__env->startSection('content'); ?>
 <div class="row">
-
     <div class="col-md-12 col-lg-12 col-sm-12 col-xl-12">
         <div class="card">
             <div class="card-header card-body table-border-style">
-                
                 <div class="table-responsive">
                     <table class="table" id="pc-dt-simple">
                         <thead>
@@ -50,11 +48,32 @@
                                         <span>
                                             <div class="action-btn bg-warning ms-2">
                                                 <a href="<?php echo e(route('setsalary.show', \Illuminate\Support\Facades\Crypt::encrypt($employee->id))); ?>"
-                                                    class="mx-3 btn btn-sm  align-items-center" data-bs-toggle="tooltip"
+                                                    class="mx-3 btn btn-sm align-items-center" data-bs-toggle="tooltip"
                                                     title="" data-bs-original-title="<?php echo e(__('View')); ?>">
                                                     <i class="ti ti-eye text-white"></i>
                                                 </a>
                                             </div>
+                                            
+                                            <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Edit Set Salary')): ?>
+                                                <div class="action-btn bg-info ms-2">
+                                                    <a href="#" data-size="lg" data-url="<?php echo e(route('salary-increment.form', $employee->id)); ?>" data-ajax-popup="true"
+                                                        class="mx-3 btn btn-sm align-items-center" data-bs-toggle="tooltip"
+                                                        title="" data-bs-original-title="<?php echo e(__('Salary Increment')); ?>">
+                                                        <i class="ti ti-arrow-up text-white"></i>
+                                                    </a>
+                                                    
+                                                </div>
+                                            <?php endif; ?>
+                                            
+                                            <?php if($employee->salaryIncrements && $employee->salaryIncrements->count() > 0): ?>
+                                                <div class="action-btn bg-primary ms-2">
+                                                    <a href="<?php echo e(route('salary-increment.pdf', $employee->salaryIncrements->first()->id)); ?>"
+                                                        class="mx-3 btn btn-sm align-items-center" data-bs-toggle="tooltip"
+                                                        title="" data-bs-original-title="<?php echo e(__('Download Increment Letter')); ?>">
+                                                        <i class="ti ti-download text-white"></i>
+                                                    </a>
+                                                </div>
+                                            <?php endif; ?>
                                         </span>
                                     </td>
                                 </tr>
@@ -67,5 +86,4 @@
     </div>
 </div>
 <?php $__env->stopSection(); ?>
-
 <?php echo $__env->make('layouts.admin', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH D:\risinghrmcli\resources\views/setsalary/index.blade.php ENDPATH**/ ?>

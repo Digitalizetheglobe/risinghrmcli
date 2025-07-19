@@ -25,6 +25,8 @@ class ExperienceCertificate extends Model
             '{duration}',
             '{designation}',
             '{payroll}',
+            '{resignation_date}',
+            '{last_working_day}',
             
 
       
@@ -36,6 +38,8 @@ class ExperienceCertificate extends Model
             'duration' => '-',
             'designation' => '-',
             'payroll' => '-',
+            'resignation_date' => '-',
+            'last_working_day' => '-',
             
 
         ];

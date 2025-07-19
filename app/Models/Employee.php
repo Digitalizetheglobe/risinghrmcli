@@ -340,10 +340,27 @@ class Employee extends Model
 
 
     public function projects()
-{
-    return $this->hasMany(Project::class, 'employees_id'); // 'employees_id' = foreign key
-}
+    {
+        return $this->hasMany(Project::class, 'employees_id'); // 'employees_id' = foreign key
+    }
 
+    // In app/Models/Employee.php
+    public function terminations()
+    {
+        return $this->hasMany(Termination::class, 'employee_id');
+    }
+
+    public function activeTermination()
+    {
+        return $this->hasOne(Termination::class, 'employee_id')
+            ->where('termination_date', '<=', now()->format('Y-m-d'));
+    }
+
+    // In your Employee model (app/Models/Employee.php)
+public function salaryIncrements()
+{
+    return $this->hasMany(SalaryIncrement::class);
+}
 
  
 

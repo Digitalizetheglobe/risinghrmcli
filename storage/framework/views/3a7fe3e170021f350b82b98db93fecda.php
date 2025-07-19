@@ -250,6 +250,12 @@
                                 <div class="float-end"><i class="ti ti-chevron-right"></i></div>
                             </a>
 
+                            <a href="#increment-letter-settings" id="increment-letter-tab"
+                                class="list-group-item list-group-item-action border-0"><?php echo e(__('Increment Letter Settings')); ?>
+
+                                <div class="float-end"><i class="ti ti-chevron-right"></i></div>
+                            </a>
+
                             <a href="#appointment-letter-settings" id="offer-letter-tab"
                                 class="list-group-item list-group-item-action border-0"><?php echo e(__('Appointment Letter Settings')); ?>
 
@@ -1922,6 +1928,11 @@ unset($__errorArgs, $__bag); ?>
                                                         : <span
                                                             class="pull-right text-primary">{offer_expiration_date}</span>
                                                     </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Offer Letter Date')); ?>
+
+                                                        : <span class="pull-right text-primary">{offer_date}</span>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -1943,6 +1954,95 @@ unset($__errorArgs, $__bag); ?>
 
                                 </div>
 
+                                <?php echo e(Form::close()); ?>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="" id="increment-letter-settings">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between">
+                                <h5><?php echo e(__('Increment Letter Settings')); ?></h5>
+                                <div class="d-flex justify-content-end drp-languages">
+                                    <ul class="list-unstyled mb-0 m-2">
+                                        <li class="dropdown dash-h-item drp-language" style="margin-top: -19px;">
+                                            <a class="dash-head-link dropdown-toggle arrow-none me-0"
+                                                data-bs-toggle="dropdown" href="#" role="button"
+                                                aria-haspopup="false" aria-expanded="false" id="dropdownLanguage">
+                                                <span class="drp-text hide-mob text-primary">
+                                                    <?php echo e(Str::ucfirst($incrementlangName->fullName)); ?>
+
+                                                </span>
+                                                <i class="ti ti-chevron-down drp-arrow nocolor"></i>
+                                            </a>
+                                            <div class="dropdown-menu dash-h-dropdown dropdown-menu-end"
+                                                aria-labelledby="dropdownLanguage">
+                                                <?php $__currentLoopData = App\Models\Utility::languages(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $code => $incrementlangs): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                    <a href="<?php echo e(route('get.incrementletter.language', ['noclangs' => $noclang, 'explangs' => $explang, 'offerlangs' => $offerlang, 'joininglangs' => $joininglang, 'incrementlangs' => $code])); ?>"
+                                                        class="dropdown-item ms-1 <?php echo e($incrementlang == $code ? 'text-primary' : ''); ?>">
+                                                        <span><?php echo e(ucFirst($incrementlangs)); ?></span>
+                                                    </a>
+                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body ">
+                                <h5 class="font-weight-bold pb-3">
+                                    <?php echo e(__('Placeholders')); ?></h5>
+
+                                <div class="col-lg-12 col-md-12 col-sm-12">
+                                    <div class="card">
+                                        <div class="card-header card-body">
+                                            <div class="row text-xs">
+                                                <div class="row">
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Employee Name')); ?> : <span class="pull-end text-primary">{employee_name}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Designation')); ?> : <span class="pull-right text-primary">{designation}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Department')); ?> : <span class="pull-right text-primary">{department}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Date')); ?> : <span class="pull-right text-primary">{date}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Company Name')); ?> : <span class="pull-right text-primary">{app_name}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Old Salary')); ?> : <span class="pull-right text-primary">{old_salary}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('New Salary')); ?> : <span class="pull-right text-primary">{new_salary}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Increment Amount')); ?> : <span class="pull-right text-primary">{increment_amount}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Month of Effective Date')); ?> : <span class="pull-right text-primary">{month_of_effective_date}</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body table-border-style ">
+                                <?php echo e(Form::open(['route' => ['incrementletter.update', $incrementlang], 'method' => 'post'])); ?>
+
+                                <div class="form-group col-12">
+                                    <?php echo e(Form::label('content', __(' Format'), ['class' => 'form-label text-dark'])); ?>
+
+                                    <textarea name="content" class="summernote-simple"><?php echo isset($currIncrementletterLang->content) ? $currIncrementletterLang->content : ''; ?></textarea>
+                                </div>
+                                <div class="card-footer text-end">
+                                    <?php echo e(Form::submit(__('Save Changes'), ['class' => 'btn  btn-primary'])); ?>
+
+                                </div>
                                 <?php echo e(Form::close()); ?>
 
                             </div>
@@ -2143,6 +2243,14 @@ unset($__errorArgs, $__bag); ?>
                                                     <p class="col-4">
                                                         <?php echo e(__('Number of Hours')); ?> :
                                                         <span class="pull-right text-primary">{total_hours}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Resignation Date')); ?> :
+                                                        <span class="pull-right text-primary">{resignation_date}</span>
+                                                    </p>
+                                                    <p class="col-4">
+                                                        <?php echo e(__('Last Working Day')); ?> :
+                                                        <span class="pull-right text-primary">{last_working_day}</span>
                                                     </p>
                                                 </div>
                                             </div>

@@ -175,4 +175,6 @@ class RegisteredUserController extends Controller
             return abort('404', 'Page not found');
         }
     }
+
+
 }

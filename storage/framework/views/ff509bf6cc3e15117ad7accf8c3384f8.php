@@ -152,19 +152,17 @@
                             <div class="col-12 col-sm-12">
                                 <div class="d-grid">
                                     <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Show Employee')): ?>
-                                                <a class="btn btn-outline-primary"
-                                                    href="<?php echo e(route('employee.show', \Illuminate\Support\Facades\Crypt::encrypt($employee->id))); ?>">
-                                                    <?php echo e($employee->formatted_id); ?>
+                                        <a class="btn btn-outline-primary"
+                                            href="<?php echo e(route('employee.show', \Illuminate\Support\Facades\Crypt::encrypt($employee->id))); ?>">
+                                            <?php echo e($employee->formatted_id); ?>
 
-                                                </a>
-                                            <?php else: ?>
-                                                <a href="#" class="btn btn-outline-primary">
-                                                    <?php echo e($employee->formatted_id); ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="#" class="btn btn-outline-primary">
+                                            <?php echo e($employee->formatted_id); ?>
 
-                                                </a>
-                                            <?php endif; ?>
-
-                                    
+                                        </a>
+                                    <?php endif; ?> 
                                 </div>
                             </div>
                         </div>
