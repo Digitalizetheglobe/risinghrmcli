@@ -547,11 +547,12 @@
 
             if (!projectId) {
                 $unitDropdown.empty().append('<option value="">Select Project First</option>');
+                $('#unit_size').val('');
                 return;
             }
 
             $.ajax({
-                url: `/hrm/get-units-by-project/${projectId}`,
+                url: `/get-units-by-project/${projectId}`,
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
@@ -564,12 +565,48 @@
                             );
                         });
                         $unitDropdown.prop('disabled', false);
+                        
+                        // If there's a previously selected unit, trigger the change event
+                        if ('{{ $bookingForm->unit_id ?? '' }}') {
+                            $unitDropdown.trigger('change');
+                        }
                     } else {
                         $unitDropdown.append('<option value="">No units available</option>');
                     }
                 },
                 error: function () {
                     $unitDropdown.empty().append('<option value="">Error loading units</option>');
+                }
+            });
+        });
+
+        // Handle unit selection to show unit details
+        $('#unitDropdown').on('change', function() {
+            const unitId = $(this).val();
+            
+            if (!unitId) {
+                $('#unit_size').val('');
+                return;
+            }
+
+            // Show loading state
+            $('#unit_size').val('Loading...');
+
+            // Make AJAX request to get unit details
+            $.ajax({
+                url: `/get-unit-details/${unitId}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.unit_size) {
+                        $('#unit_size').val(response.unit_size);
+                    } else {
+                        $('#unit_size').val('Size not available');
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Error fetching unit details:', xhr.responseText);
+                    $('#unit_size').val('Error loading size');
                 }
             });
         });

@@ -340,10 +340,10 @@
                                                     @endphp
                                                     @if($employeeDoc && $employeeDoc->document_value)
                                                         <div class="mt-2">
-                                                            <a href="{{ asset(Storage::url('document/' . $employeeDoc->document_value)) }}" target="_blank" class="btn btn-sm btn-primary">
+                                                            <a href="{{ asset('storage/uploads/document/' . $employeeDoc->document_value) }}" target="_blank" class="btn btn-sm btn-primary">
                                                                 <i class="ti ti-download"></i> Download
                                                             </a>
-                                                            <img id="{{ 'blah' . $key }}" src="{{ asset(Storage::url('document/' . $employeeDoc->document_value)) }}" class="document-preview" />
+                                                            <img style="width:200px;" id="{{ 'blah' . $key }}" src="{{ asset('storage/uploads/document/' . $employeeDoc->document_value) }}" class="document-preview" />
                                                         </div>
                                                     @else
                                                         <img id="{{ 'blah' . $key }}" src="" class="document-preview" style="display:none;" />
@@ -417,14 +417,14 @@
                                                                 class="form-control file education-document"
                                                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
                                                         </label>
-                                                        @if(isset($education['document_path']))
-                                                            <div class="mt-2">
-                                                                <a href="{{ asset($education['document_path']) }}" target="_blank" class="btn btn-sm btn-primary">
-                                                                    <i class="ti ti-download"></i> View Document
-                                                                </a>
-                                                                <input type="hidden" name="education[{{ $key }}][existing_document]" value="{{ $education['document_path'] }}">
-                                                            </div>
-                                                        @endif
+                                                            @if(isset($education['document_path']))
+                                                                <div class="mt-2">
+                                                                    <a href="{{ asset('storage/' . $education['document_path']) }}" target="_blank" class="btn btn-sm btn-primary">
+                                                                        <i class="ti ti-download"></i> View Document
+                                                                    </a>
+                                                                    <input type="hidden" name="education[{{ $key }}][existing_document]" value="{{ $education['document_path'] }}">
+                                                                </div>
+                                                            @endif
                                                     </div>
                                                 </div>
                                                 <div class="form-group col-md-12 text-end">

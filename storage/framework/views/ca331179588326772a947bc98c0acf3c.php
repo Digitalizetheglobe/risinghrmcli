@@ -391,10 +391,10 @@ unset($__errorArgs, $__bag); ?>"
                                                     ?>
                                                     <?php if($employeeDoc && $employeeDoc->document_value): ?>
                                                         <div class="mt-2">
-                                                            <a href="<?php echo e(asset(Storage::url('document/' . $employeeDoc->document_value))); ?>" target="_blank" class="btn btn-sm btn-primary">
+                                                            <a href="<?php echo e(asset('storage/uploads/document/' . $employeeDoc->document_value)); ?>" target="_blank" class="btn btn-sm btn-primary">
                                                                 <i class="ti ti-download"></i> Download
                                                             </a>
-                                                            <img id="<?php echo e('blah' . $key); ?>" src="<?php echo e(asset(Storage::url('document/' . $employeeDoc->document_value))); ?>" class="document-preview" />
+                                                            <img style="width:200px;" id="<?php echo e('blah' . $key); ?>" src="<?php echo e(asset('storage/uploads/document/' . $employeeDoc->document_value)); ?>" class="document-preview" />
                                                         </div>
                                                     <?php else: ?>
                                                         <img id="<?php echo e('blah' . $key); ?>" src="" class="document-preview" style="display:none;" />
@@ -476,14 +476,14 @@ unset($__errorArgs, $__bag); ?>"
                                                                 class="form-control file education-document"
                                                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
                                                         </label>
-                                                        <?php if(isset($education['document_path'])): ?>
-                                                            <div class="mt-2">
-                                                                <a href="<?php echo e(asset($education['document_path'])); ?>" target="_blank" class="btn btn-sm btn-primary">
-                                                                    <i class="ti ti-download"></i> View Document
-                                                                </a>
-                                                                <input type="hidden" name="education[<?php echo e($key); ?>][existing_document]" value="<?php echo e($education['document_path']); ?>">
-                                                            </div>
-                                                        <?php endif; ?>
+                                                            <?php if(isset($education['document_path'])): ?>
+                                                                <div class="mt-2">
+                                                                    <a href="<?php echo e(asset('storage/' . $education['document_path'])); ?>" target="_blank" class="btn btn-sm btn-primary">
+                                                                        <i class="ti ti-download"></i> View Document
+                                                                    </a>
+                                                                    <input type="hidden" name="education[<?php echo e($key); ?>][existing_document]" value="<?php echo e($education['document_path']); ?>">
+                                                                </div>
+                                                            <?php endif; ?>
                                                     </div>
                                                 </div>
                                                 <div class="form-group col-md-12 text-end">

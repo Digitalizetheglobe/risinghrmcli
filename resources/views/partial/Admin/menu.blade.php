@@ -25,8 +25,9 @@
     <div class="m-header main-logo">
         <a href="{{ route('dashboard') }}" class="b-brand">
             <!-- ========   change your logo hear   ============ -->
-            <img src="{{ $logo . (isset($company_logo) && !empty($company_logo) ? $company_logo . '?' . time() : 'logo-dark.png' . '?' . time()) }}"
+            <img src="{{ asset('storage/uploads/logo/logo-dark.png') }}"
                 alt="{{ config('app.name', 'HRMGo') }}" class="logo logo-lg" style="height: 75px;">
+
         </a>
     </div>
     <div class="navbar-content">

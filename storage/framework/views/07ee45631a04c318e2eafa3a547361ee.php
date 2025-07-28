@@ -28,11 +28,14 @@
                         <div class="col-md-6">
                             <p><strong><?php echo e(__('Number of Months')); ?>:</strong> <?php echo e($loan->number_of_months); ?></p>
                             <p><strong><?php echo e(__('Remaining Amount')); ?>:</strong> 
-                            <?php echo e(\Auth::user()->priceFormat($loan->remaining_amount)); ?>
+                                <?php echo e(\Auth::user()->priceFormat($loan->remaining_amount)); ?>
 
-                            <small class="text-muted">
-                                (Deducted: <?php echo e(\Auth::user()->priceFormat($loan->total_amount - $loan->remaining_amount)); ?>)
-                            </small>
+                                <small class="text-muted">
+                                    (<?php echo e($loan->deducted_month_count); ?>/<?php echo e($loan->original_month_count); ?> months deducted)
+                                    <?php if($loan->extended_months > 0): ?>
+                                        <span class="text-info">+<?php echo e($loan->extended_months); ?> extended</span>
+                                    <?php endif; ?>
+                                </small>
                             </p>
                             <p><strong><?php echo e(__('Start Month')); ?>:</strong> <?php echo e(\Auth::user()->dateFormat($loan->start_month)); ?></p>
                         </div>

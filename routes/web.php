@@ -2081,6 +2081,10 @@ Route::group(['middleware' => ['verified']], function () {
 
     Route::post('/dashboard/filter', [HomeController::class, 'filterDashboardData'])->name('dashboard.filter');
 
+Route::get('/offline', function () {
+    return view('offline');
+});
+
 
 
     Route::get('/debug-manifest', function() {

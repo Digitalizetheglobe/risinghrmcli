@@ -32,11 +32,17 @@ class LoanDeduction extends Model
     protected static function booted()
     {
         static::saved(function ($deduction) {
-            $deduction->loan->calculateRemainingAmount()->save();
+            // Prevent recursive saving
+            if (!$deduction->loan->isDirty()) {
+                $deduction->loan->calculateRemainingAmount()->save();
+            }
         });
         
         static::deleted(function ($deduction) {
-            $deduction->loan->calculateRemainingAmount()->save();
+            // Prevent recursive saving
+            if (!$deduction->loan->isDirty()) {
+                $deduction->loan->calculateRemainingAmount()->save();
+            }
         });
     }
 

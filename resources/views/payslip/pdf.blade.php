@@ -62,6 +62,7 @@ try {
     $leaveDays = 0;
     $weekOffDays = 0;
     $casualLeaveDays = 0;
+    $unlimitedLeaveDays = 0;
 
     // Get employee's week off day with error handling
     try {
@@ -135,17 +136,20 @@ try {
             $dayOfWeek = $date->format('D');
             $dateStr = $date->format('Y-m-d');
             
+            // Skip week off days
             if (strcasecmp($dayOfWeek, $weekOffDay) === 0) {
                 $weekOffDays++;
                 continue;
             }
             
+            // Check if employee clocked in
             $attended = $attendanceRecords->contains('date', $dateStr);
             
             if (!$attended) {
                 $onLeave = false;
                 $leaveType = '';
                 
+                // Check if employee was on leave
                 foreach ($leaves as $leave) {
                     try {
                         $leaveStart = new DateTime($leave->start_date);
@@ -155,7 +159,7 @@ try {
                         foreach ($leavePeriod as $leaveDay) {
                             if ($leaveDay->format('Y-m-d') == $dateStr) {
                                 $onLeave = true;
-                                $leaveType = $leave->leave_type;
+                                $leaveType = strtolower($leave->leave_type ?? '');
                                 break 2;
                             }
                         }
@@ -169,16 +173,19 @@ try {
                 }
                 
                 if ($onLeave) {
-                    if (strtolower($leaveType) == 'casual leave') {
+                    if ($leaveType == 'unlimited leave') {
+                        $unlimitedLeaveDays++;
+                        $absentDays++; // Count unlimited leave as absent
+                    } elseif ($leaveType == 'casual leave') {
                         $casualLeaveDays++;
                         $leaveDays++;
-                    } elseif (in_array(strtolower($leaveType), ['earned leave', 'sick leave'])) {
-                        $leaveDays++;
+                    } elseif (!empty($leaveType)) {
+                        $leaveDays++; // Other approved leaves
                     } else {
-                        $absentDays++;
+                        $absentDays++; // No leave, no attendance - pure absent
                     }
                 } else {
-                    $absentDays++;
+                    $absentDays++; // No leave, no attendance - pure absent
                 }
             }
         }
@@ -188,7 +195,8 @@ try {
             'absent_days' => $absentDays,
             'leave_days' => $leaveDays,
             'week_off_days' => $weekOffDays,
-            'casual_leave_days' => $casualLeaveDays
+            'casual_leave_days' => $casualLeaveDays,
+            'unlimited_leave_days' => $unlimitedLeaveDays
         ]);
     } catch (\Exception $e) {
         \Log::error('Attendance Calculation Error', [
@@ -303,27 +311,25 @@ try {
         $remainingLoan = 0;
     }
 
-
     // Final calculations with strict type checking
     try {
-    // Initialize loan deduction first (FIX: Move this line here)
-    $loanDeduction = isset($payslip->loan) ? (float)$payslip->loan : 0;
+        $loanDeduction = isset($payslip->loan) ? (float)$payslip->loan : 0;
 
-    $totalDeductions = (float)$deductionForAbsent + (float)$deductionForCasualLeave + (float)$ptDeduction + (float)$loanDeduction;
-    $netSalary = (float)$grossSalary - (float)$totalDeductions;
-    
-    \Log::info('Final salary calculations', [
-        'total_deductions' => $totalDeductions,
-        'net_salary' => $netSalary,
-        'type_checks' => [
-            'grossSalary' => gettype($grossSalary),
-            'deductionForAbsent' => gettype($deductionForAbsent),
-            'deductionForCasualLeave' => gettype($deductionForCasualLeave),
-            'ptDeduction' => gettype($ptDeduction),
-            'loanDeduction' => gettype($loanDeduction), // FIX: Now this is just a value
-            'totalDeductions' => gettype($totalDeductions)
-        ]
-    ]);
+        $totalDeductions = (float)$deductionForAbsent + (float)$deductionForCasualLeave + (float)$ptDeduction + (float)$loanDeduction;
+        $netSalary = (float)$grossSalary - (float)$totalDeductions;
+        
+        \Log::info('Final salary calculations', [
+            'total_deductions' => $totalDeductions,
+            'net_salary' => $netSalary,
+            'type_checks' => [
+                'grossSalary' => gettype($grossSalary),
+                'deductionForAbsent' => gettype($deductionForAbsent),
+                'deductionForCasualLeave' => gettype($deductionForCasualLeave),
+                'ptDeduction' => gettype($ptDeduction),
+                'loanDeduction' => gettype($loanDeduction),
+                'totalDeductions' => gettype($totalDeductions)
+            ]
+        ]);
     } catch (\Exception $e) {
         \Log::error('Final Calculation Error', [
             'error' => $e->getMessage(),
@@ -340,7 +346,7 @@ try {
                 'deductionForAbsent' => isset($deductionForAbsent) ? gettype($deductionForAbsent) : 'N/A',
                 'deductionForCasualLeave' => isset($deductionForCasualLeave) ? gettype($deductionForCasualLeave) : 'N/A',
                 'ptDeduction' => isset($ptDeduction) ? gettype($ptDeduction) : 'N/A',
-                'loanDeduction' => isset($loanDeduction) ? gettype($loanDeduction) : 'N/A' // FIX: No assignment here
+                'loanDeduction' => isset($loanDeduction) ? gettype($loanDeduction) : 'N/A'
             ]
         ]);
         abort(500, 'Failed to calculate final salary: ' . $e->getMessage());

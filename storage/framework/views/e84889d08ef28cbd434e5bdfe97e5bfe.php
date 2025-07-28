@@ -25,8 +25,9 @@
     <div class="m-header main-logo">
         <a href="<?php echo e(route('dashboard')); ?>" class="b-brand">
             <!-- ========   change your logo hear   ============ -->
-            <img src="<?php echo e($logo . (isset($company_logo) && !empty($company_logo) ? $company_logo . '?' . time() : 'logo-dark.png' . '?' . time())); ?>"
+            <img src="<?php echo e(asset('storage/uploads/logo/logo-dark.png')); ?>"
                 alt="<?php echo e(config('app.name', 'HRMGo')); ?>" class="logo logo-lg" style="height: 75px;">
+
         </a>
     </div>
     <div class="navbar-content">

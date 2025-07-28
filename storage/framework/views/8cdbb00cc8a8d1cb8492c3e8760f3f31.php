@@ -177,7 +177,7 @@
                                         <div class="col-md-6">
                                             <div class="info text-sm">
                                                 <strong class="font-bold"><?php echo e($document->name); ?> : </strong>
-                                                <span><a href="<?php echo e(!empty($employeedoc[$document->id]) ? $logo . '/' . $employeedoc[$document->id] : ''); ?>"
+                                                    <span><a href="<?php echo e(!empty($employeedoc[$document->id]) ? asset('storage/uploads/document/' . $employeedoc[$document->id]) : ''); ?>"
                                                         target="_blank"><?php echo e(!empty($employeedoc[$document->id]) ? $employeedoc[$document->id] : ''); ?></a></span>
                                             </div>
                                         </div>
@@ -256,11 +256,9 @@
                                         <div class="col-md-3">
                                             <strong>Document:</strong><br>
                                             <?php if(isset($edu['document_path'])): ?>
-                                                <a href="<?php echo e(asset($edu['document_path'])); ?>" target="_blank" class="btn btn-sm btn-primary">
+                                                <a href="<?php echo e(asset('storage/' . $edu['document_path'])); ?>" target="_blank" class="btn btn-sm btn-primary">
                                                     <i class="ti ti-download"></i> View
                                                 </a>
-                                            <?php else: ?>
-                                                -
                                             <?php endif; ?>
                                         </div>
                                     </div>

@@ -278,25 +278,21 @@ class UserController extends Controller
 
         if ($request->hasFile('profile')) {
             $filenameWithExt = $request->file('profile')->getClientOriginalName();
-            $filename        = pathinfo($filenameWithExt, PATHINFO_FILENAME);
-            $extension       = $request->file('profile')->getClientOriginalExtension();
-            $fileNameToStore = $filename . '_' . time() . '.' . $extension;
+            $filename = pathinfo($filenameWithExt, PATHINFO_FILENAME);
+            $extension = $request->file('profile')->getClientOriginalExtension();
+            $fileNameToStore = 'avatar_' . time() . '.' . $extension;
 
-
-            $dir        = 'uploads/avatar';
-
-            $image_path = $dir . $userDetail['avatar'];
-            if (File::exists($image_path)) {
-                File::delete($image_path);
+            $dir = 'uploads/avatar/';
+            
+            // Delete old avatar if exists
+            if ($userDetail['avatar']) {
+                \Storage::disk('public')->delete($dir . $userDetail['avatar']);
             }
-            $url = '';
-            $path = Utility::upload_file($request, 'profile', $fileNameToStore, $dir, []);
-
-            if ($path['flag'] == 1) {
-                $url = $path['url'];
-            } else {
-                return redirect()->route('profile', \Auth::user()->id)->with('error', __($path['msg']));
-            }
+            
+            // Store new avatar in public storage
+            $path = $request->file('profile')->storeAs($dir, $fileNameToStore, 'public');
+            
+            $user['avatar'] = $fileNameToStore;
         }
 
         if (!empty($request->profile)) {

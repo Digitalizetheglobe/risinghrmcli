@@ -186,7 +186,7 @@
                 <select name="project_id" id="projectDropdown" class="form-control select2" required>
                     <option value="">Select Project</option>
                     <?php $__currentLoopData = $projects; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $id => $name): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                        <option value="<?php echo e($id); ?>"><?php echo e($name); ?></option>
+                        <option value="<?php echo e($id); ?>" <?php echo e($bookingForm->project_id == $id ? 'selected' : ''); ?>><?php echo e($name); ?></option>
                     <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                 </select>
             </div>
@@ -194,15 +194,18 @@
             <div class="form-group col-md-4">
                 <?php echo e(Form::label('unit_id', __('Unit Name'), ['class' => 'col-form-label'])); ?>
 
-                <select name="unit_id" id="unitDropdown" class="form-control" disabled required>
-                    <option value="">Select Project First</option>
+                <select name="unit_id" id="unitDropdown" class="form-control" required>
+                    <option value="">Select Unit</option>
+                    <?php if($bookingForm->unit_id && $bookingForm->unit): ?>
+                        <option value="<?php echo e($bookingForm->unit_id); ?>" style="text-color:black;" selected><?php echo e($bookingForm->unit->unit_name); ?></option>
+                    <?php endif; ?>
                 </select>
             </div>
 
-           <div class="form-group col-md-4">
+            <div class="form-group col-md-4">
                 <?php echo e(Form::label('unit_size', __('Unit Size (sq.ft)'), ['class' => 'col-form-label'])); ?>
 
-                <?php echo e(Form::text('unit_size', '', ['class' => 'form-control', 'id' => 'unit_size', 'readonly' => true, 'placeholder' => 'Unit size will appear here'])); ?>
+                <?php echo e(Form::text('unit_size', $bookingForm->unit_size ?? '', ['class' => 'form-control', 'id' => 'unit_size', 'readonly' => true])); ?>
 
             </div>
 
@@ -598,163 +601,138 @@
         });
     });
 
-   $(document).ready(function () {
-    $('#projectDropdown').on('change', function () {
-        let projectId = $(this).val();
-        let $unitDropdown = $('#unitDropdown');
+$(document).ready(function() {
+    // Debug function
+    function debug(message) {
+        $('#unit-debug').append('<div>' + message + '</div>');
+        console.log(message);
+    }
 
-        $unitDropdown.empty().append('<option value="">Loading...</option>').prop('disabled', true);
+    debug('Document ready');
 
+    // Project dropdown change handler
+    $('#projectDropdown').on('change', function() {
+        const projectId = $(this).val();
+        const $unitDropdown = $('#unitDropdown');
+        
+        console.log('Project changed to:', projectId);
+        
+        // Clear and disable dropdown while loading
+        $unitDropdown.empty().append('<option value="">Loading units...</option>').prop('disabled', true);
+        
         if (!projectId) {
-            $unitDropdown.empty().append('<option value="">Select Project First</option>');
+            $unitDropdown.empty().append('<option value="">Select project first</option>');
             return;
         }
-
+        
         $.ajax({
-            url: `get-units-by-project/${projectId}`,
+            url: `/get-units-by-project/${projectId}`,
             type: 'GET',
             dataType: 'json',
-            success: function (response) {
-                $unitDropdown.empty().append('<option value="">Select Unit</option>');
+            success: function(response) {
+                console.log('Units received:', response);
+                
+                $unitDropdown.empty().append('<option value="">Select unit</option>');
                 
                 if (response.units && response.units.length > 0) {
-                    response.units.forEach(function (unit) {
+                    response.units.forEach(function(unit) {
                         $unitDropdown.append(
-                            `<option value="${unit.id}">${unit.unit_name}</option>`
+                            $('<option></option>')
+                                .val(unit.id)
+                                .text(unit.name)
+                                .attr('data-size', unit.unit_size) // Store size in data attribute
                         );
                     });
+                    
                     $unitDropdown.prop('disabled', false);
+                    
+                    // If editing existing booking, set the unit
+                    <?php if(isset($bookingForm) && $bookingForm->unit_id): ?>
+                        $unitDropdown.val('<?php echo e($bookingForm->unit_id); ?>').trigger('change');
+                    <?php endif; ?>
                 } else {
                     $unitDropdown.append('<option value="">No units available</option>');
                 }
+                
+                // Force dropdown to update visually
+                if ($unitDropdown.hasClass('select2-hidden-accessible')) {
+                    $unitDropdown.select2('destroy').select2();
+                }
             },
-            error: function () {
+            error: function(xhr, status, error) {
+                console.error('Error loading units:', error);
                 $unitDropdown.empty().append('<option value="">Error loading units</option>');
             }
         });
-
-        $('#unitDropdown').on('change', function() {
-            const unitId = $(this).val();
-            
-            if (!unitId) {
-                $('#unit_size').val('');
-                return;
-            }
-
-            // Show loading state
-            $('#unit_size').val('Loading...');
-
-            // Make AJAX request to get unit details
-            $.ajax({
-                url: `/hrm/get-unit-details/${unitId}`,
-                type: 'GET',
-                dataType: 'json',
-                success: function(response) {
-                    if (response.unit_size) {
-                        $('#unit_size').val(response.unit_size);
-                    } else {
-                        $('#unit_size').val('Size not available');
-                    }
-                },
-                error: function(xhr) {
-                    console.error('Error fetching unit details:', xhr.responseText);
-                    $('#unit_size').val('Error loading size');
-                }
-            });
-        });
-
     });
+
+    // Handle unit selection
+    $('#unitDropdown').on('change', function() {
+        const unitId = $(this).val();
+        console.log('Unit selected:', unitId, $(this).find('option:selected').text());
+        
+        if (!unitId) {
+            $('#unit_size').val('');
+            return;
+        }
+        
+        // Get size from data attribute if available
+        const size = $(this).find('option:selected').data('size');
+        if (size) {
+            $('#unit_size').val(size);
+            return;
+        }
+        
+        // Fallback to AJAX if size not in data attribute
+        $.ajax({
+            url: `/get-unit-details/${unitId}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                $('#unit_size').val(response.unit_size || '');
+            },
+            error: function() {
+                $('#unit_size').val('Error loading size');
+            }
+        });
+    });
+    
+    // Initialize if project is already selected
+    <?php if(isset($bookingForm) && $bookingForm->project_id): ?>
+        debug('Initializing with project: <?php echo e($bookingForm->project_id); ?>');
+        $('#projectDropdown').trigger('change');
+    <?php endif; ?>
 });
 </script>
 
 
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-
-<script>
-    $(document).ready(function () {
-        $('#projectDropdown').on('change', function () {
-            let projectId = $(this).val();
-            let $unitDropdown = $('#unitDropdown');
-
-            $unitDropdown.empty().append('<option value="">Loading...</option>').prop('disabled', true);
-
-            if (!projectId) {
-                $unitDropdown.empty().append('<option value="">Select Project First</option>');
-                return;
-            }
-
-            console.log("Making request to fetch units for project ID:", projectId); // Debug
-
-            $.ajax({
-                url: `/hrm/get-units-by-project/${projectId}`,
-                type: 'GET',
-                dataType: 'json',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                success: function (response) {
-                    console.log("Full API Response:", response); // Debug entire response
-                    
-                    // Handle different response formats
-                    let units = [];
-                    
-                    if (Array.isArray(response)) {
-                        units = response; // If response is directly an array
-                    } else if (response && response.units) {
-                        units = response.units; // If response has units property
-                    } else if (response && response.data) {
-                        units = response.data; // If response has data property
-                    }
-                    
-                    console.log("Processed units array:", units); // Debug processed units
-                    
-                    $unitDropdown.empty().append('<option value="">Select Unit</option>');
-                    
-                    if (units.length > 0) {
-                        units.forEach(function (unit) {
-                            // Safely get unit name from various possible fields
-                            const unitName = unit.unit_name || unit.name || unit.unitName || 
-                                            unit.unit_name_en || unit.title || 'Unnamed Unit';
-                            const unitId = unit.id || unit.unit_id || unit._id;
-                            
-                            if (unitId && unitName) {
-                                $unitDropdown.append(
-                                    `<option value="${unitId}">${unitName}</option>`
-                                );
-                            }
-                        });
-                        
-                        if ($unitDropdown.find('option').length === 1) {
-                            $unitDropdown.append('<option value="">No valid units found</option>');
-                        }
-                    } else {
-                        $unitDropdown.append('<option value="">No units available</option>');
-                    }
-                    
-                    $unitDropdown.prop('disabled', false);
-                },
-                error: function (xhr, status, error) {
-                    console.error("AJAX Error:", {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        responseText: xhr.responseText,
-                        error: error
-                    });
-                    
-                    $unitDropdown.empty()
-                        .append('<option value="">Error loading units</option>')
-                        .prop('disabled', true);
-                }
-            });
-        });
-    });
-</script>
 
 <style>
     .hidden { display: none; }
     .text-danger { color: red; }
+
+    /* Force dropdown visibility */
+    #unitDropdown {
+        display: block !important;
+        opacity: 1 !important;
+        position: relative !important;
+        z-index: 9999 !important;
+        width: 100% !important;
+        height: auto !important;
+        color: #000;
+    }
+    
+    /* Debug box styling */
+    #unit-debug {
+        max-height: 200px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border: 1px solid #dc3545;
+        padding: 10px;
+        margin-top: 10px;
+        font-family: monospace;
+        font-size: 12px;
+    }
 </style>
 <?php /**PATH D:\risinghrmcli\resources\views/booking/create.blade.php ENDPATH**/ ?>

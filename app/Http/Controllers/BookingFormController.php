@@ -127,7 +127,7 @@ class BookingFormController extends Controller{
                 }
 
                 $units = Unit::pluck('unit_name', 'id');
-                $bookingForm = null;
+                $bookingForm = new BookingForm();
 
                 if ($request->has('booking_id')) {
                     $bookingForm = BookingForm::with(['project', 'unit'])->find($request->booking_id);
@@ -553,16 +553,16 @@ class BookingFormController extends Controller{
         return view('booking.pdf', compact('booking'));
     }
 
-   public function getUnitsByProject($project_id)
+    public function getUnitsByProject($project_id)
     {
         $units = Unit::where('project_id', $project_id)
-                    ->where('is_approved', 0)
+                    ->where('is_approved', 0) // or whatever your availability logic is
                     ->get(['id', 'unit_name', 'unit_size']);
 
         return response()->json(['units' => $units]);
     }
 
-   public function getUnitDetails($unit_id)
+    public function getUnitDetails($unit_id)
     {
         $unit = Unit::find($unit_id, ['id', 'unit_name', 'unit_size']);
         
@@ -571,6 +571,8 @@ class BookingFormController extends Controller{
             'unit_size' => $unit->unit_size ?? null
         ]);
     }
+
+
 
 
     public function getEmployeeProjects($userId)

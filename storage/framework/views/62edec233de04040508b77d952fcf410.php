@@ -48,33 +48,30 @@
                                     </td>
                                     <td><?php echo e(\Auth::user()->dateFormat($loan->start_month)); ?></td>
                                     <td class="Action">
-                                                <span>
-                                                    <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Show Employee')): ?>
-                                                        <a href="<?php echo e(route('loan.show', $loan->id)); ?>" class="btn btn-sm btn-warning">
-                                                            <i class="ti ti-eye"></i>
-                                                        </a>
-                                                    <?php endif; ?>
+                                        <span class="d-flex">
+                                            <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Show Employee')): ?>
+                                                <a href="<?php echo e(route('loan.show', $loan->id)); ?>" class="btn btn-sm btn-warning me-2" data-bs-toggle="tooltip" title="View">
+                                                    <i class="ti ti-eye"></i>
+                                                </a>
+                                            <?php endif; ?>
 
-                                                    <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Delete Employee')): ?>
-                                                            <div class="action-btn bg-danger ms-2">
-                                                                <?php echo Form::open([
-                                                                    'method' => 'DELETE',
-                                                                    'route' => ['loan.destroy', $loan->id],
-                                                                    'id' => 'delete-form-' . $loan->id,
-                                                                ]); ?>
+                                            <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('Delete Employee')): ?>
+                                                <?php echo Form::open([
+                                                    'method' => 'DELETE',
+                                                    'route' => ['loan.destroy', $loan->id],
+                                                    'id' => 'delete-form-' . $loan->id,
+                                                    'style' => 'display:inline;',
+                                                ]); ?>
 
-                                                                <a href="#"
-                                                                    class="mx-3 btn btn-sm align-items-center bs-pass-para"
-                                                                    data-bs-toggle="tooltip" title=""
-                                                                    data-bs-original-title="Delete" aria-label="Delete">
-                                                                    <i class="ti ti-trash text-white"></i>
-                                                                </a>
-                                                                <?php echo Form::close(); ?>
+                                                    <button type="submit" class="btn btn-sm btn-danger" data-bs-toggle="tooltip" title="Delete" onclick="return confirm('Are you sure?')">
+                                                        <i class="ti ti-trash text-white"></i>
+                                                    </button>
+                                                <?php echo Form::close(); ?>
 
-                                                            </div>
-                                                    <?php endif; ?>
-                                                </span>
-                                            </td>
+                                            <?php endif; ?>
+                                        </span>
+                                    </td>
+
                                 </tr>
                             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                         </tbody>

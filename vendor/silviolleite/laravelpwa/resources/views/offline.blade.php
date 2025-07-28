@@ -1,8 +1,12 @@
-@extends('layouts.app')
-
-@section('content')
-    <div class="container">
-        <h1>You're Offline</h1>
-        <p>This app requires an internet connection.</p>
-    </div>
-@endsection
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Offline</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h2>You are currently offline.</h2>
+    <p>Please check your internet connection.</p>
+</body>
+</html>

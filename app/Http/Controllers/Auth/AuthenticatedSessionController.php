@@ -78,13 +78,18 @@ class AuthenticatedSessionController extends Controller
         }
         $this->validate($request, $validation);
 
-        $remember = $request->filled('remember');
-        Auth::attempt(
-            $request->only('email', 'password'),
-            $remember
-        );
+    $remember = $request->filled('remember');
 
-        $request->session()->regenerate();
+    Auth::attempt(
+        $request->only('email', 'password'),
+        $remember   
+    );
+
+    if ($remember) {
+        config(['session.lifetime' => 43200]); // 30 days
+    }
+
+    $request->session()->regenerate();
 
         $user = Auth::user();
         if ($user->is_active == 0) {

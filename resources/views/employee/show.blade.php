@@ -172,7 +172,7 @@
                                         <div class="col-md-6">
                                             <div class="info text-sm">
                                                 <strong class="font-bold">{{ $document->name }} : </strong>
-                                                <span><a href="{{ !empty($employeedoc[$document->id]) ? $logo . '/' . $employeedoc[$document->id] : '' }}"
+                                                    <span><a href="{{ !empty($employeedoc[$document->id]) ? asset('storage/uploads/document/' . $employeedoc[$document->id]) : '' }}"
                                                         target="_blank">{{ !empty($employeedoc[$document->id]) ? $employeedoc[$document->id] : '' }}</a></span>
                                             </div>
                                         </div>
@@ -246,11 +246,9 @@
                                         <div class="col-md-3">
                                             <strong>Document:</strong><br>
                                             @if(isset($edu['document_path']))
-                                                <a href="{{ asset($edu['document_path']) }}" target="_blank" class="btn btn-sm btn-primary">
+                                                <a href="{{ asset('storage/' . $edu['document_path']) }}" target="_blank" class="btn btn-sm btn-primary">
                                                     <i class="ti ti-download"></i> View
                                                 </a>
-                                            @else
-                                                -
                                             @endif
                                         </div>
                                     </div>

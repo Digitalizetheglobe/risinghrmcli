@@ -27,10 +27,13 @@
                         <div class="col-md-6">
                             <p><strong>{{ __('Number of Months') }}:</strong> {{ $loan->number_of_months }}</p>
                             <p><strong>{{ __('Remaining Amount') }}:</strong> 
-                            {{ \Auth::user()->priceFormat($loan->remaining_amount) }}
-                            <small class="text-muted">
-                                (Deducted: {{ \Auth::user()->priceFormat($loan->total_amount - $loan->remaining_amount) }})
-                            </small>
+                                {{ \Auth::user()->priceFormat($loan->remaining_amount) }}
+                                <small class="text-muted">
+                                    ({{ $loan->deducted_month_count }}/{{ $loan->original_month_count }} months deducted)
+                                    @if($loan->extended_months > 0)
+                                        <span class="text-info">+{{ $loan->extended_months }} extended</span>
+                                    @endif
+                                </small>
                             </p>
                             <p><strong>{{ __('Start Month') }}:</strong> {{ \Auth::user()->dateFormat($loan->start_month) }}</p>
                         </div>

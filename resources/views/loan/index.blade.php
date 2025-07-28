@@ -46,31 +46,28 @@
                                     </td>
                                     <td>{{ \Auth::user()->dateFormat($loan->start_month) }}</td>
                                     <td class="Action">
-                                                <span>
-                                                    @can('Show Employee')
-                                                        <a href="{{ route('loan.show', $loan->id) }}" class="btn btn-sm btn-warning">
-                                                            <i class="ti ti-eye"></i>
-                                                        </a>
-                                                    @endcan
+                                        <span class="d-flex">
+                                            @can('Show Employee')
+                                                <a href="{{ route('loan.show', $loan->id) }}" class="btn btn-sm btn-warning me-2" data-bs-toggle="tooltip" title="View">
+                                                    <i class="ti ti-eye"></i>
+                                                </a>
+                                            @endcan
 
-                                                    @can('Delete Employee')
-                                                            <div class="action-btn bg-danger ms-2">
-                                                                {!! Form::open([
-                                                                    'method' => 'DELETE',
-                                                                    'route' => ['loan.destroy', $loan->id],
-                                                                    'id' => 'delete-form-' . $loan->id,
-                                                                ]) !!}
-                                                                <a href="#"
-                                                                    class="mx-3 btn btn-sm align-items-center bs-pass-para"
-                                                                    data-bs-toggle="tooltip" title=""
-                                                                    data-bs-original-title="Delete" aria-label="Delete">
-                                                                    <i class="ti ti-trash text-white"></i>
-                                                                </a>
-                                                                {!! Form::close() !!}
-                                                            </div>
-                                                    @endcan
-                                                </span>
-                                            </td>
+                                            @can('Delete Employee')
+                                                {!! Form::open([
+                                                    'method' => 'DELETE',
+                                                    'route' => ['loan.destroy', $loan->id],
+                                                    'id' => 'delete-form-' . $loan->id,
+                                                    'style' => 'display:inline;',
+                                                ]) !!}
+                                                    <button type="submit" class="btn btn-sm btn-danger" data-bs-toggle="tooltip" title="Delete" onclick="return confirm('Are you sure?')">
+                                                        <i class="ti ti-trash text-white"></i>
+                                                    </button>
+                                                {!! Form::close() !!}
+                                            @endcan
+                                        </span>
+                                    </td>
+
                                 </tr>
                             @endforeach
                         </tbody>

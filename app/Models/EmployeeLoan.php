@@ -66,4 +66,34 @@ class EmployeeLoan extends Model
             }]);
         }
 
+    public function updateRemainingAmount()
+    {
+        $totalDeducted = $this->deductions()
+            ->where('is_deducted', true)
+            ->sum('emi_amount');
+            
+        $this->remaining_amount = $this->total_amount - $totalDeducted;
+        $this->save();
+    }
+
+    public function getTotalDeductedAttribute()
+    {
+        return $this->deductions()->where('is_deducted', true)->sum('emi_amount');
+    }
+
+    public function getOriginalMonthCountAttribute()
+    {
+        return $this->number_of_months;
+    }
+
+    public function getActualMonthCountAttribute()
+    {
+        return $this->number_of_months + $this->extended_months;
+    }
+
+    public function getDeductedMonthCountAttribute()
+    {
+        return $this->deductions()->where('is_deducted', true)->count();
+    }
+
 }

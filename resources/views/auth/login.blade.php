@@ -253,14 +253,46 @@
             this.classList.toggle('fa-eye-slash');
         });
 
-        // Clear form fields on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Clear password field (email is preserved for UX)
-            document.getElementById('password').value = '';
-            
-            // Force reload if page is loaded from cache (back/forward navigation)
+        // Auto-fill from localStorage
+        document.addEventListener('DOMContentLoaded', function () {
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const rememberCheckbox = document.getElementById('remember');
+
+            // Fill from localStorage if exists
+            const savedEmail = localStorage.getItem('savedEmail');
+            const savedPassword = localStorage.getItem('savedPassword');
+
+            if (savedEmail) {
+                emailInput.value = savedEmail;
+                rememberCheckbox.checked = true;
+            }
+
+            if (savedPassword) {
+                passwordInput.value = savedPassword;
+            }
+
+            // Optional: force reload if loaded from cache
             if (window.performance && performance.navigation.type === 2) {
                 window.location.reload();
+            }
+
+            // Optional: Clear sessionStorage
+            sessionStorage.clear();
+        });
+
+        // On form submit, store email (and optionally password)
+        document.querySelector('form').addEventListener('submit', function () {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+
+            if (remember) {
+                localStorage.setItem('savedEmail', email);
+                localStorage.setItem('savedPassword', password); // Optional, remove if insecure
+            } else {
+                localStorage.removeItem('savedEmail');
+                localStorage.removeItem('savedPassword');
             }
         });
 
@@ -268,9 +300,31 @@
         if (window.history.replaceState) {
             window.history.replaceState(null, null, window.location.href);
         }
-
-        // Clear session storage (optional additional measure)
-        sessionStorage.clear();
     </script>
+
+
+@if (Auth::check())
+<script>
+    document.addEventListener("deviceready", function () {
+        var ss = new cordova.plugins.SecureStorage(
+            function () {
+                ss.remove(function () {
+                    console.log("🔓 Token cleared on logout.");
+                }, function (error) {
+                    console.error("Error clearing token: " + error);
+                }, 'login_token');
+            },
+            function (error) {
+                console.error("SecureStorage init error: " + error);
+            },
+            'connect360_storage'
+        );
+    }, false);
+</script>
+
+
+@endif
+
+
 </body>
 </html>

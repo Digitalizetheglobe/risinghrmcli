@@ -1,9 +1,11 @@
 @php
     use App\Models\Utility;
+    use Illuminate\Support\Facades\Auth;
+    use Illuminate\Support\Facades\DB;
 
-    $users = \Auth::user();
+    $users = Auth::user();
     $currantLang = $users->currentLanguage();
-    $profile = \App\Models\Utility::get_file('uploads/avatar/');
+    $profile = asset('storage/uploads/avatar/'); // Updated path to public storage
     $unseenCounter = App\Models\ChMessage::where('to_id', Auth::user()->id)
         ->where('seen', 0)
         ->count();
@@ -13,25 +15,20 @@
         ->where('seen', 0)
         ->count();
 
-    
     $leaveNotifications = \App\Models\Leave::where('status', 'pending')
-        ->with(['employees.user', 'leaveType']) // Updated relationship
+        ->with(['employees.user', 'leaveType'])
         ->orderBy('created_at', 'desc')
         ->get();
     $unseenLeaveCount = $leaveNotifications->where('seen_by_manager', 0)->count();
-
 @endphp
 
-
 @if (isset($setting['cust_theme_bg']) && $setting['cust_theme_bg'] == 'on')
-    <header class="dash-header transprent-bg" style="background: linear-gradient(to right, #fff, #fff); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);" >
-    @else
-        <header class="dash-header" style="background: linear-gradient(to right, #0a3772, #008ecc);">
+    <header class="dash-header transprent-bg" style="background: linear-gradient(to right, #fff, #fff); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+@else
+    <header class="dash-header" style="background: linear-gradient(to right, #0a3772, #008ecc);">
 @endif
-{{-- <header class="dash-header  {{ isset($setting['is_sidebar_transperent']) && $setting['is_sidebar_transperent'] == 'on' ? 'transprent-bg' : '' }}"> --}}
 
-
-<div class="header-wrapper" style="display: flex; justify-content: space-between; align-items: center; width: 100%; ">
+<div class="header-wrapper" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
     <div class="me-auto dash-mob-drp">
         <ul class="list-unstyled" style="display: flex; align-items: center;">
             <li class="dash-h-item mob-hamburger">
@@ -47,9 +44,9 @@
                 <a class="dash-head-link dropdown-toggle arrow-none me-0" data-bs-toggle="dropdown" href="#"
                    role="button" aria-haspopup="false" aria-expanded="false" style="background-color: white;">
                     <span class="theme-avtar" style="background-color: white;">
-                        <img alt="#"
-                             src="{{ !empty($users->avatar) ? $profile . $users->avatar : $profile . '/avatar.png' }}"
-                             class="header-avtar" style="width: 100%; border-radius: 50%; background-color: white;">
+                        <img alt="User Avatar"
+                             src="{{ $users->avatar ? asset('storage/uploads/avatar/' . $users->avatar) : asset('storage/uploads/avatar/avatar.png') }}"
+                             class="header-avtar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background-color: white;">
                     </span>
                     <span class="hide-mob ms-2" style="background-color: white;">{{ 'Hi, ' . Auth::user()->name . '!' }}
                         <i class="ti ti-chevron-down drp-arrow nocolor hide-mob" style="background-color: white;"></i>
@@ -75,52 +72,17 @@
     </div>
     
     <!-- Marquee Section for Daily Quote -->
-    <!-- Marquee Section for Daily Quote -->
     <div class="quote-container" style="display: flex; justify-content: center; align-items: center; flex-grow: 1;">
         <marquee behavior="scroll" direction="left" scrollamount="6" style="color: #0a3c77; font-size: 18px; font-weight: bold; width: 100%;margin: left 11px;">
             " {{ $quote->quote ?? 'No quote for today!!' }} "
         </marquee>
     </div>
 
-
-
-   
-
-
     <div class="ms-auto" style="display: flex; justify-content: flex-end; align-items: center;">
         <ul class="list-unstyled" style="display: flex; align-items: center;">
             @if (\Auth::user()->type != 'super admin')
-                <!-- <li class="dropdown dash-h-item drp-notification">
-                    <a class="dash-head-link dropdown-toggle arrow-none me-0" data-bs-toggle="dropdown" href="#"
-                       role="button" aria-haspopup="false" aria-expanded="false" id="msg-btn"
-                       style="background-color: white;">
-                        <i class="ti ti-message-2"></i>
-                        <span class="bg-danger dash-h-badge message-counter custom_messanger_counter"
-                              style="background-color: white;">{{ $unseenCounter }}</span>
-                    </a>
-                    <div class="dropdown-menu dash-h-dropdown dropdown-menu-end" style="background-color: white;">
-                        <div class="noti-header" style="background-color: white;">
-                            <h5 class="m-0" style="background-color: white;">{{ __('Messages') }}</h5>
-                            <a href="#" class="dash-head-link mark_all_as_read_message"
-                               style="background-color: white;">{{ __('Clear All') }}</a>
-                        </div>
-                        <div class="noti-body dropdown-list-message-msg" style="background-color: white;">
-                            <div style="display: flex; background-color: white;">
-                                <a href="#" class="show-listView" style="background-color: white;"></a>
-                                <div class="count-listOfContacts" style="background-color: white;"></div>
-                            </div>
-                        </div>
-                        <div class="noti-footer" style="background-color: white;">
-                            <div class="d-grid">
-                                <a href="{{ route('chats') }}"
-                                   class="btn dash-head-link justify-content-center text-primary mx-0"
-                                   style="background-color: white;">View all</a>
-                            </div>
-                        </div>
-                    </div>
-                </li> -->
                 <li class="dropdown dash-h-item drp-notification">
-    <a class="dash-head-link dropdown-toggle arrow-none me-0 position-relative" 
+                    <a class="dash-head-link dropdown-toggle arrow-none me-0 position-relative" 
                         data-bs-toggle="dropdown" href="#"
                         role="button" aria-haspopup="false" aria-expanded="false" id="leave-notification-btn">
                         <i class="ti ti-calendar-time fs-5"></i>
@@ -131,42 +93,36 @@
                             </span>
                         @endif
                     </a>
-    <div class="dropdown-menu dash-h-dropdown dropdown-menu-end">
-        
-        <div class="noti-body">
-    @forelse($leaveNotifications as $leave)
-        <div class="d-flex align-items-center p-2 border-bottom leave-notification-item" 
-             data-leave-id="{{ $leave->id }}"
-             style="background-color: {{ $leave->seen_by_manager ? '#fff' : '#f8f9fa' }};">
-             <div class="flex-grow-1 ms-2">
-                 <h6 class="mb-0" style="font-size: 14px;">
-                     @if($leave->employees && $leave->employees->user)
-                         {{ $leave->employees->user->name }}
-                     @elseif($leave->employee_name)
-                         {{ $leave->employee_name }}
-                     @else
-                         Unknown Employee
-                     @endif
-                     <span class="text-muted" style="font-size: 12px;">
-                         ({{ $leave->leaveType->title ?? 'N/A' }})
-                     </span>
-                 </h6>
-                 <p class="mb-0 text-muted" style="font-size: 12px;">
-                     {{ $leave->start_date }} to {{ $leave->end_date }}<br>
-                     Reason: {{ Str::limit($leave->leave_reason, 30) }}
-                 </p>
-             </div>
-             
-             <div class="text-end">
-                 <small class="text-muted">{{ $leave->created_at->diffForHumans() }}</small>
-                 <br>
-                 <!-- <a href="{{ route('leave.action', ['id' => $leave->id, 'status' => 'approve']) }}" 
-                    class="btn btn-sm btn-success btn-xs">Approve</a>
-                 <a href="{{ route('leave.action', ['id' => $leave->id, 'status' => 'reject']) }}" 
-                    class="btn btn-sm btn-danger btn-xs">Reject</a> -->
-             </div>
-               <td class="Action">
-
+                    <div class="dropdown-menu dash-h-dropdown dropdown-menu-end">
+                        <div class="noti-body">
+                            @forelse($leaveNotifications as $leave)
+                                <div class="d-flex align-items-center p-2 border-bottom leave-notification-item" 
+                                     data-leave-id="{{ $leave->id }}"
+                                     style="background-color: {{ $leave->seen_by_manager ? '#fff' : '#f8f9fa' }};">
+                                     <div class="flex-grow-1 ms-2">
+                                         <h6 class="mb-0" style="font-size: 14px;">
+                                             @if($leave->employees && $leave->employees->user)
+                                                 {{ $leave->employees->user->name }}
+                                             @elseif($leave->employee_name)
+                                                 {{ $leave->employee_name }}
+                                             @else
+                                                 Unknown Employee
+                                             @endif
+                                             <span class="text-muted" style="font-size: 12px;">
+                                                 ({{ $leave->leaveType->title ?? 'N/A' }})
+                                             </span>
+                                         </h6>
+                                         <p class="mb-0 text-muted" style="font-size: 12px;">
+                                             {{ $leave->start_date }} to {{ $leave->end_date }}<br>
+                                             Reason: {{ Str::limit($leave->leave_reason, 30) }}
+                                         </p>
+                                     </div>
+                                     
+                                     <div class="text-end">
+                                         <small class="text-muted">{{ $leave->created_at->diffForHumans() }}</small>
+                                         <br>
+                                     </div>
+                                       <td class="Action">
                                             <span>
                                                 @if (\Auth::user()->type != 'employee')
                                                     <div class="action-btn bg-success ms-2">
@@ -191,34 +147,31 @@
                                                         </a>
                                                     </div>
                                                 @endif
-        </div>
-        
-    @empty
-        <div class="text-center p-3">
-            <p class="mb-0">{{ __('No pending leave requests') }}</p>
-        </div>
-    @endforelse
-</div>
-        <div class="noti-footer">
-            <div class="d-grid">
-                <a href="{{ route('leave.index') }}"
-                   class="btn dash-head-link justify-content-center text-primary mx-0">
-                   View All Leaves
-                </a>
-            </div>
-        </div>
-    </div>
-</li>
-
-                @endif
+                            </div>
+                            
+                        @empty
+                            <div class="text-center p-3">
+                                <p class="mb-0">{{ __('No pending leave requests') }}</p>
+                            </div>
+                        @endforelse
+                        </div>
+                        <div class="noti-footer">
+                            <div class="d-grid">
+                                <a href="{{ route('leave.index') }}"
+                                   class="btn dash-head-link justify-content-center text-primary mx-0">
+                                   View All Leaves
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            @endif
         </ul>
     </div>
 </div>
-
-
 </header>
+
 @push('scripts')
-    {{-- @include('Chatify::layouts.modals') --}}
     <script>
         $('#msg-btn').click(function() {
             let contactsPage = 1;
@@ -234,10 +187,8 @@
                 },
                 dataType: "JSON",
                 success: (data) => {
-
                     if (contactsPage < 2) {
                         $(".count-listOfContacts").html(data.contacts);
-
                     } else {
                         $(".count-listOfContacts").append(data.contacts);
                     }
@@ -246,14 +197,11 @@
                         $('.noti-body .avatar').remove()
                         $(this).find('span').remove()
                         $(this).find('p').addClass("d-inline")
-                        // $(this).find('b').addClass('position-absolute')
-                        // $(this).find('b').css({position: "absolute"});
                         $(this).find('b').css({
                             "position": "absolute",
                             "right": "50px"
                         });
                         $(this).find('tr').remove('td')
-
                     })
                 },
                 error: (error) => {
@@ -262,42 +210,36 @@
                 },
             });
         })
+        
         document.addEventListener('DOMContentLoaded', function() {
-    // Show employee info card when Approve/Reject is clicked
-    document.querySelectorAll('.show-employee-info').forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            const leaveId = this.getAttribute('data-leave-id');
-            const card = document.getElementById(`employee-card-${leaveId}`);
-            
-            // Hide all other cards first
-            document.querySelectorAll('.employee-info-card').forEach(el => {
-                el.style.display = 'none';
+            document.querySelectorAll('.show-employee-info').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const leaveId = this.getAttribute('data-leave-id');
+                    const card = document.getElementById(`employee-card-${leaveId}`);
+                    
+                    document.querySelectorAll('.employee-info-card').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    
+                    card.style.display = 'block';
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
             });
-            
-            // Show this card
-            card.style.display = 'block';
-            
-            // Scroll to card if needed
-            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        });
-    });
 
-    // Handle cancel button
-    document.querySelectorAll('.cancel-action').forEach(button => {
-        button.addEventListener('click', function() {
-            this.closest('.employee-info-card').style.display = 'none';
-        });
-    });
+            document.querySelectorAll('.cancel-action').forEach(button => {
+                button.addEventListener('click', function() {
+                    this.closest('.employee-info-card').style.display = 'none';
+                });
+            });
 
-    // Add confirmation for actions
-    document.querySelectorAll('.confirm-action').forEach(button => {
-        button.addEventListener('click', function(e) {
-            if(!confirm(`Are you sure you want to ${this.getAttribute('data-status')} this leave request?`)) {
-                e.preventDefault();
-            }
+            document.querySelectorAll('.confirm-action').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    if(!confirm(`Are you sure you want to ${this.getAttribute('data-status')} this leave request?`)) {
+                        e.preventDefault();
+                    }
+                });
+            });
         });
-    });
-});
     </script>
 @endpush

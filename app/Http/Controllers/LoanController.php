@@ -45,26 +45,46 @@ class LoanController extends Controller
     }
 
     public function store(Request $request)
-{
-    if(\Auth::user()->can('Create Employee')) {
+    {
+        // Authorization check
+        if (!\Auth::user()->can('Create Employee')) {
+            return redirect()->back()->with('error', __('Permission denied.'));
+        }
+
         DB::beginTransaction();
         try {
+            \Log::info('Loan Creation Request:', $request->all());
+
             $validator = \Validator::make(
                 $request->all(), [
-                    'employee_id' => 'required',
+                    'employee_id' => 'required|exists:employees,id',
                     'total_amount' => 'required|numeric|min:1',
                     'number_of_months' => 'required|integer|min:1',
-                    'start_month' => 'required|date',
-                    'reason' => 'nullable|string',
+                    'start_month' => 'required|date_format:Y-m',
+                    'reason' => 'nullable|string|max:255',
+                ],
+                [
+                    'employee_id.exists' => __('Selected employee does not exist'),
+                    'start_month.date_format' => __('Invalid month format. Use YYYY-MM'),
                 ]
             );
 
-            if($validator->fails()) {
-                return redirect()->back()->with('error', $validator->errors()->first());
+            if ($validator->fails()) {
+                \Log::error('Validation failed:', $validator->errors()->toArray());
+                return redirect()->back()
+                    ->withErrors($validator)
+                    ->withInput();
             }
 
-            $startMonth = Carbon::parse($request->start_month);
-            $monthlyEmi = $request->total_amount / $request->number_of_months;
+            // Parse start month (format: YYYY-MM)
+            $startMonth = Carbon::createFromFormat('Y-m', $request->start_month)->startOfMonth();
+            $monthlyEmi = round($request->total_amount / $request->number_of_months, 2);
+
+            \Log::debug("Creating loan with params:", [
+                'employee_id' => $request->employee_id,
+                'start_month' => $startMonth,
+                'monthly_emi' => $monthlyEmi
+            ]);
 
             $loan = EmployeeLoan::create([
                 'employee_id' => $request->employee_id,
@@ -78,28 +98,45 @@ class LoanController extends Controller
                 'extended_months' => 0,
             ]);
 
-            // Create deduction records for each month
+            \Log::info("Loan created with ID: {$loan->id}");
+
+            // Create monthly deductions
+            $deductions = [];
             for ($i = 0; $i < $request->number_of_months; $i++) {
-                $deductionMonth = $startMonth->copy()->addMonths($i)->startOfMonth();
+                $deductionMonth = $startMonth->copy()->addMonths($i);
                 
-                LoanDeduction::create([
+                $deductions[] = [
                     'loan_id' => $loan->id,
                     'month' => $deductionMonth,
                     'emi_amount' => $monthlyEmi,
                     'is_deducted' => false,
-                ]);
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
 
+            // Bulk insert for better performance
+            LoanDeduction::insert($deductions);
+            \Log::info("Created {$request->number_of_months} deduction records");
+
             DB::commit();
-            return redirect()->route('loan.index')->with('success', __('Loan successfully created.'));
+
+            return redirect()->route('loan.index')
+                ->with('success', __('Loan successfully created.'));
+
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Loan creation failed: '.$e->getMessage());
-            return redirect()->back()->with('error', __('Failed to create loan. Please try again.'));
+            \Log::error('Loan Creation Failed:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'input' => $request->all()
+            ]);
+            
+            return redirect()->back()
+                ->with('error', __('Loan creation failed: ') . $e->getMessage())
+                ->withInput();
         }
     }
-    return redirect()->back()->with('error', __('Permission denied.'));
-}
 
     public function show($id)
     {
@@ -135,95 +172,142 @@ class LoanController extends Controller
 
 public function updateDeduction(Request $request, LoanDeduction $deduction)
 {
+    // Authorization check
     if (!\Auth::user()->can('Edit Employee')) {
         return redirect()->back()->with('error', __('Permission denied.'));
     }
 
     DB::beginTransaction();
     try {
-        $loan = $deduction->loan;
+        // Eager load the loan with minimal fields
+        $loan = EmployeeLoan::with(['deductions' => function($q) {
+                $q->where('is_deducted', true);
+            }])
+            ->select('id', 'total_amount', 'remaining_amount', 'monthly_emi', 'number_of_months', 'extended_months')
+            ->where('id', $deduction->loan_id)
+            ->firstOrFail();
 
-        // If admin selects "No Deduction"
-        if ($request->is_deducted == false) {
-            // Check if already marked as No Deduction
-            if ($deduction->remark === 'No Deduction') {
-                return redirect()->back()->with('error', __('This month is already marked as No Deduction.'));
+        $isDeducted = $request->is_deducted === "1";
+        $currentStatus = $deduction->is_deducted;
+        $currentRemark = $deduction->remark;
+
+        \Log::debug('Deduction update initiated', [
+            'loan_id' => $loan->id,
+            'deduction_id' => $deduction->id,
+            'action' => $isDeducted ? 'Mark as Deducted' : 'Defer Payment',
+            'current_status' => $currentStatus,
+            'current_remark' => $currentRemark
+        ]);
+
+        // ===== CASE 1: MARK AS DEDUCTED =====
+        if ($isDeducted) {
+            // If already deducted, no action needed
+            if ($currentStatus) {
+                DB::commit();
+                return redirect()->route('loan.show', $loan->id)
+                    ->with('info', __('Deduction was already marked as paid.'));
             }
 
-            // Mark this deduction as skipped
+            // Validate sufficient remaining amount
+            if ($loan->remaining_amount < $loan->monthly_emi) {
+                throw new \Exception(__('Remaining amount insufficient for this deduction.'));
+            }
+
+            // Update the deduction record
+            $deduction->update([
+                'is_deducted' => true,
+                'remark' => null,
+                'updated_at' => now()
+            ]);
+
+            // Handle deferred payment reversal
+            if ($currentRemark === 'No Deduction') {
+                $extraDeduction = LoanDeduction::where('loan_id', $loan->id)
+                    ->where('id', '!=', $deduction->id)
+                    ->where('is_deducted', false)
+                    ->orderByDesc('month')
+                    ->first();
+
+                if ($extraDeduction) {
+                    $extraDeduction->delete();
+                    $loan->decrement('extended_months');
+                    \Log::debug('Removed extended deduction month', ['deduction_id' => $extraDeduction->id]);
+                }
+            }
+
+            // Update loan status
+            $loan->updateRemainingAmount();
+            \Log::debug('Loan amounts updated after deduction', [
+                'remaining_amount' => $loan->remaining_amount,
+                'total_deducted' => $loan->total_deducted
+            ]);
+        }
+        // ===== CASE 2: DEFER PAYMENT =====
+        else {
+            // If already deferred, no action needed
+            if (!$currentStatus && $currentRemark === 'No Deduction') {
+                DB::commit();
+                return redirect()->route('loan.show', $loan->id)
+                    ->with('info', __('Deduction was already deferred.'));
+            }
+
+            // Validate not already deducted
+            if ($currentStatus) {
+                throw new \Exception(__('Cannot defer already deducted payment.'));
+            }
+
+            // Update current deduction
             $deduction->update([
                 'is_deducted' => false,
                 'remark' => 'No Deduction',
+                'updated_at' => now()
             ]);
 
-            // Find the last scheduled deduction month
-            $lastDeduction = $loan->deductions()
-                ->orderBy('month', 'desc')
-                ->first();
+            // Add new month at end
+            $lastMonth = LoanDeduction::where('loan_id', $loan->id)
+                ->orderByDesc('month')
+                ->value('month');
 
-            // Create a new deduction in the next month
-            $newMonth = Carbon::parse($lastDeduction->month)->addMonth();
-            
+            $newMonth = Carbon::parse($lastMonth)->addMonth();
+
             LoanDeduction::create([
                 'loan_id' => $loan->id,
                 'month' => $newMonth,
-                'emi_amount' => $deduction->emi_amount,
+                'emi_amount' => $loan->monthly_emi,
                 'is_deducted' => false,
-                'remark' => null,
+                'created_at' => now(),
+                'updated_at' => now()
             ]);
 
-            // Update loan remaining amount and extended status
-            $loan->remaining_amount += $deduction->emi_amount; // Add back the amount
-            $loan->extended_months += 1;
-            $loan->save();
-
-            DB::commit();
-            return redirect()->route('loan.show', $loan->id)
-                ->with('success', __('Deduction successfully deferred to next month.'));
-        } 
-        // If admin switches back to "Yes Deduct"
-        else {
-            // Check if this deduction was previously deferred
-            if ($deduction->remark === 'No Deduction') {
-                // Find the extended deduction (the last one)
-                $lastDeduction = $loan->deductions()
-                    ->orderBy('month', 'desc')
-                    ->first();
-
-                // Only remove if it's not the same as current deduction
-                if ($lastDeduction->id != $deduction->id) {
-                    $lastDeduction->delete();
-                    $loan->extended_months -= 1;
-                }
-
-                // Revert this deduction to normal
-                $deduction->update([
-                    'is_deducted' => true,
-                    'remark' => null,
-                ]);
-                
-                // Update loan remaining amount
-                $loan->remaining_amount -= $deduction->emi_amount;
-            } else {
-                // Just update normally
-                $deduction->update([
-                    'is_deducted' => true,
-                    'remark' => null,
-                ]);
-            }
-
-            $loan->save();
-            DB::commit();
-            return redirect()->route('loan.show', $loan->id)
-                ->with('success', __('Deduction status updated successfully.'));
+            // Update loan status
+            $loan->increment('extended_months');
+            $loan->updateRemainingAmount();
+            \Log::debug('Loan extended', [
+                'new_month' => $newMonth->format('Y-m'),
+                'extended_months' => $loan->extended_months
+            ]);
         }
+
+        DB::commit();
+
+        return redirect()->route('loan.show', $loan->id)
+            ->with('success', __('Deduction status updated successfully.'));
+
     } catch (\Exception $e) {
         DB::rollBack();
-        Log::error('Loan deduction update failed: ' . $e->getMessage());
-        Log::error('Stack trace: ' . $e->getTraceAsString());
-        return redirect()->back()->with('error', __('Action failed. Error: ') . $e->getMessage());
+        \Log::error('Deduction update failed', [
+            'error' => $e->getMessage(),
+            'deduction_id' => $deduction->id,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return redirect()->back()
+            ->with('error', __('Action failed: ') . $e->getMessage())
+            ->withInput();
     }
 }
+
+
     public function destroy($id)
     {
         try {

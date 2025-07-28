@@ -304,8 +304,8 @@
                             // Handle new document upload
                             if (isset($education['document']) && $education['document']) {
                                 // Delete old document if exists
-                                if ($docPath && file_exists(public_path($docPath))) {
-                                    unlink(public_path($docPath));
+                                if ($docPath && file_exists(public_path('storage/' . $docPath))) {
+                                    unlink(public_path('storage/' . $docPath));
                                 }
                                 $docPath = $this->storeEducationDocument($education['document'], $employee->employee_id, $key);
                             }
@@ -381,11 +381,17 @@
                             $employeeDocument = new EmployeeDocument();
                             $employeeDocument->employee_id = $employee->id;
                             $employeeDocument->document_id = $docId;
+                        } else {
+                            // Delete old document if exists
+                            $oldFilePath = 'uploads/document/' . $employeeDocument->document_value;
+                            if (\Storage::disk('public')->exists($oldFilePath)) {
+                                \Storage::disk('public')->delete($oldFilePath);
+                            }
                         }
                         
                         // Upload and save the document
                         $filename = $employee->employee_id . '_' . $docId . '_' . time() . '.' . $document->getClientOriginalExtension();
-                        $document->storeAs('document', $filename);
+                        $path = $document->storeAs('uploads/document', $filename, 'public');
                         $employeeDocument->document_value = $filename;
                         $employeeDocument->save();
                     }
@@ -429,17 +435,15 @@
                     $payslip->delete();
                 }
 
-                $dir = storage_path('uploads/document/');
+                $dir = storage_path('app/public/uploads/document/');
                 foreach ($emp_documents as $emp_document) {
-
                     $emp_document->delete();
-                    // \File::delete(storage_path('uploads/document/' . $emp_document->document_value));
                     if (!empty($emp_document->document_value)) {
-
                         $file_path = 'uploads/document/' . $emp_document->document_value;
                         $result = Utility::changeStorageLimit(\Auth::user()->creatorId(), $file_path);
-
-                        // unlink($dir . $emp_document->document_value);
+                        if (\Storage::disk('public')->exists($file_path)) {
+                            \Storage::disk('public')->delete($file_path);
+                        }
                     }
                 }
 
@@ -850,17 +854,17 @@
 
     private function storeEducationDocument($file, $employeeId, $index)
     {
-        $folderPath = 'D:/risinghrmcli/storage/education_images';
+        $folderPath = 'uploads/education_images';
         
         // Create directory if it doesn't exist
-        if (!file_exists($folderPath)) {
-            mkdir($folderPath, 0777, true);
+        if (!file_exists(public_path('storage/' . $folderPath))) {
+            \File::makeDirectory(public_path('storage/' . $folderPath), 0777, true);
         }
         
         $filename = 'edu_' . $employeeId . '_' . $index . '_' . time() . '.' . $file->getClientOriginalExtension();
-        $file->move($folderPath, $filename);
+        $file->storeAs($folderPath, $filename, 'public');
         
-        return 'education_images/' . $filename;
+        return $folderPath . '/' . $filename;
     }
 
 }
