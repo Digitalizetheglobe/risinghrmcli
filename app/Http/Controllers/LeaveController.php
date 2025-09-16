@@ -485,12 +485,27 @@ class LeaveController extends Controller
         ]);
     }
 
-    public function getLeaveTypeDetails(Request $request)
+    public function bulkDelete(Request $request)
     {
-        $leaveType = LeaveType::find($request->leave_type_id);
-        return response()->json([
-            'days' => $leaveType->days,
-            'title' => $leaveType->title
+        if (!Auth::user()->can('Delete Employee')) {
+            abort(403, 'Permission Denied');
+        }
+        
+        $request->validate([
+            'unit_ids' => 'required|string' // We'll receive a JSON string
         ]);
+        
+        // Decode the JSON string to array
+        $unitIds = json_decode($request->unit_ids, true);
+        
+        if (!is_array($unitIds) || empty($unitIds)) {
+            return redirect()->route('units.index')
+                ->with('error', 'No units selected for deletion.');
+        }
+        
+        $deleteCount = Unit::whereIn('id', $unitIds)->delete();
+        
+        return redirect()->route('units.index')
+            ->with('success', "Successfully deleted $deleteCount units.");
     }
 }

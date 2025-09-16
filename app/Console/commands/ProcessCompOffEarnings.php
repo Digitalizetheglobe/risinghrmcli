@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Employee;
-use App\Models\Attendance;
+use App\Models\AttendanceEmployee;
 use App\Models\CompOffLeave;
 use Carbon\Carbon;
 
@@ -15,31 +15,45 @@ class ProcessCompOffEarnings extends Command
 
     public function handle()
     {
+        // Default to processing yesterday's date (since it runs at midnight)
         $processDate = $this->option('date') 
             ? Carbon::parse($this->option('date'))
             : Carbon::yesterday();
 
         $this->info("Processing comp-off earnings for: " . $processDate->format('Y-m-d'));
 
-        // Get day name (e.g., "Wednesday") for the processing date
-        $dayName = $processDate->format('l');
-        $this->info("Day name: " . $dayName);
+        // Get all employees
+        $employees = Employee::all();
+        $compOffsCreated = 0;
 
-        // Get employees whose week_off_day matches today's day
-        $eligibleEmployees = Employee::where('week_off_day', $dayName)->get();
-        $this->info("Found " . $eligibleEmployees->count() . " eligible employees");
+        foreach ($employees as $employee) {
+            $this->info("Checking employee ID: " . $employee->id);
 
-        foreach ($eligibleEmployees as $employee) {
-            $this->info("Processing employee ID: " . $employee->id);
+            // Get employee's week-off day
+            $weekOffDay = $employee->week_off_day;
+            
+            if (!$weekOffDay) {
+                $this->info("❌ No week-off day configured for employee ID: {$employee->id}");
+                continue;
+            }
 
-            // Check if employee had attendance on this date
-            $attendance = Attendance::where([
+            // Check if the processing date was this employee's week-off day
+            $dayName = $processDate->format('l');
+            
+            if ($dayName !== $weekOffDay) {
+                $this->info("❌ {$processDate->format('Y-m-d')} is not {$employee->name}'s week-off day ({$weekOffDay})");
+                continue;
+            }
+
+            // Check if employee was marked present on this date
+            $attendance = AttendanceEmployee::where([
                 'employee_id' => $employee->id,
-                'date' => $processDate->format('Y-m-d')
+                'date' => $processDate->format('Y-m-d'),
+                'status' => 'Present'
             ])->first();
 
             if ($attendance) {
-                $this->info("Found attendance for employee ID: " . $employee->id);
+                $this->info("✅ Employee worked on week-off day.");
 
                 // Check if comp-off already exists for this date
                 $existingCompOff = CompOffLeave::where([
@@ -48,23 +62,25 @@ class ProcessCompOffEarnings extends Command
                 ])->exists();
 
                 if (!$existingCompOff) {
-                    // Create new comp-off
+                    // Grant comp-off
                     CompOffLeave::create([
                         'employees_id' => $employee->id,
                         'comp_off_date' => $processDate->format('Y-m-d'),
+                        'comp_off_data' => 1.0, // Full day comp-off
                         'created_at' => now(),
                         'updated_at' => now()
                     ]);
 
-                    $this->info("Comp-off credited for employee ID: {$employee->id} for date: {$processDate->format('Y-m-d')}");
+                    $compOffsCreated++;
+                    $this->info("✅ Comp-off granted for employee ID: {$employee->id} for date: {$processDate->format('Y-m-d')}");
                 } else {
-                    $this->info("Comp-off already exists for employee ID: {$employee->id} for date: {$processDate->format('Y-m-d')}");
+                    $this->info("⚠️ Comp-off already exists for this date.");
                 }
             } else {
-                $this->info("No attendance found for employee ID: " . $employee->id);
+                $this->info("❌ Employee did not work on week-off day or was absent.");
             }
         }
 
-        $this->info('Comp-off processing completed!');
+        $this->info("Comp-off processing completed! {$compOffsCreated} comp-offs created.");
     }
 }

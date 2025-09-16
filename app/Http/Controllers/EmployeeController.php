@@ -47,17 +47,41 @@
         {
             if (\Auth::user()->can('Manage Employee')) {
                 // Get all employees (not filtered by created_by)
-                $employees = Employee::with(['branch', 'department', 'designation', 'user'])
+                $activeEmployees = Employee::with(['branch', 'department', 'designation', 'user'])
+                    ->whereNotIn('id', function($query) {
+                        $query->select('employee_id')->from('terminations');
+                    })
                     ->get()
                     ->map(function ($employee) {
                         $employee->formatted_id = \Auth::user()->employeeIdFormat($employee->employee_id);
                         return $employee;
                     });
 
-                return view('employee.index', compact('employees'));
+                $leftEmployees = Employee::with(['branch', 'department', 'designation', 'user'])
+                    ->whereIn('id', function($query) {
+                        $query->select('employee_id')->from('terminations');
+                    })
+                    ->get()
+                    ->map(function ($employee) {
+                        $employee->formatted_id = \Auth::user()->employeeIdFormat($employee->employee_id);
+                        return $employee;
+                    });
+
+                return view('employee.index', compact('activeEmployees', 'leftEmployees'));
             } else {
                 return redirect()->back()->with('error', __('Permission denied.'));
             }
+        }
+
+        public function downloadEducationDocument($filename)
+        {
+            $filePath = storage_path('app/public/uploads/education_images/' . $filename);
+            
+            if (file_exists($filePath)) {
+                return response()->file($filePath);
+            }
+            
+            abort(404, 'File not found');
         }
 
         // public function index()
@@ -190,6 +214,7 @@
                     'user_id' => $user->id,
                     'name' => $request['name'],
                     'dob' => $request['dob'] ?? null,
+                    'blood_group' => $request['blood_group'] ?? null,
                     'gender' => $request['gender'] ?? 'Male', // Default value
                     'phone' => $request['phone'] ?? null,
                     'address' => $request['address'] ?? null,
@@ -221,42 +246,48 @@
             try {
                 $employeeId = Crypt::decrypt($id);
                 $employee = Employee::with(['branch', 'department', 'designation', 'documents.document'])
-                ->findOrFail($employeeId);
-    
-                // Safely decode JSON fields with proper defaults
+                    ->findOrFail($employeeId);
+
+                // ✅ Prevent employees from editing after approval
+                if ($employee->approval_status === 'approved' && \Auth::user()->type === 'employee') {
+                    return redirect()->route('employee.show', $id)
+                        ->with('error', __('Your details have been approved and can no longer be edited.'));
+                }
+
+                // Safely decode JSON fields
                 $experiences = [];
                 $educations = [];
-                
+
                 if (!empty($employee->experience_details)) {
                     try {
                         $experiences = is_array($employee->experience_details) 
                             ? $employee->experience_details 
                             : json_decode($employee->experience_details, true);
-                        $experiences = $experiences ?: []; // Ensure it's always an array
+                        $experiences = $experiences ?: [];
                     } catch (\Exception $e) {
                         \Log::error("Error decoding experiences: " . $e->getMessage());
                         $experiences = [];
                     }
                 }
-            
+
                 if (!empty($employee->education_details)) {
                     try {
                         $educations = is_array($employee->education_details) 
                             ? $employee->education_details 
                             : json_decode($employee->education_details, true);
-                        $educations = $educations ?: []; // Ensure it's always an array
+                        $educations = $educations ?: [];
                     } catch (\Exception $e) {
                         \Log::error("Error decoding educations: " . $e->getMessage());
                         $educations = [];
                     }
                 }
-    
+
                 // Get all necessary data
                 $branches = Branch::where('created_by', \Auth::user()->creatorId())->get()->pluck('name', 'id');
                 $departments = Department::where('created_by', \Auth::user()->creatorId())->get()->pluck('name', 'id');
                 $designations = Designation::where('created_by', \Auth::user()->creatorId())->get()->pluck('name', 'id');
                 $documents = Document::where('created_by', \Auth::user()->creatorId())->get();
-                
+
                 return view('employee.edit', compact(
                     'employee',
                     'branches',
@@ -266,28 +297,32 @@
                     'experiences',
                     'educations'
                 ));
-    
+
             } catch (\Exception $e) {
                 \Log::error("Employee edit error: " . $e->getMessage());
                 return redirect()->back()->with('error', __('Employee not found'));
             }
         }
     
-       
         public function update(Request $request, $id)
         {
             if (\Auth::user()->can('Edit Employee')) {
                 $employee = Employee::findOrFail($id);
-            
+
+                // ✅ Prevent employees from updating after approval
+                if (\Auth::user()->type === 'employee' && $employee->approval_status === 'approved') {
+                    return redirect()->back()->with('error', __('Your details have been approved and can no longer be edited.'));
+                }
+
                 $rules = [
                     'name' => 'required',
                     'branch_id' => 'required',
                     'department_id' => 'required',
                     'designation_id' => 'required',
                 ];
-            
+
                 $validator = \Validator::make($request->all(), $rules);
-            
+
                 if ($validator->fails()) {
                     return redirect()->back()->withInput()->with('error', $validator->messages()->first());
                 }
@@ -295,21 +330,18 @@
                 // Process education details
                 $educationDetails = [];
                 $educationImages = [];
-                
                 if ($request->has('education')) {
                     foreach ($request->education as $key => $education) {
                         if (!empty($education['college_name'])) {
                             $docPath = $education['existing_document'] ?? null;
-                            
-                            // Handle new document upload
+
                             if (isset($education['document']) && $education['document']) {
-                                // Delete old document if exists
                                 if ($docPath && file_exists(public_path('storage/' . $docPath))) {
                                     unlink(public_path('storage/' . $docPath));
                                 }
                                 $docPath = $this->storeEducationDocument($education['document'], $employee->employee_id, $key);
                             }
-                            
+
                             $educationDetails[] = [
                                 'college_name' => $education['college_name'],
                                 'passing_year' => $education['passing_year'] ?? null,
@@ -317,7 +349,7 @@
                                 'degree' => $education['degree'] ?? null,
                                 'document_path' => $docPath,
                             ];
-                            
+
                             if ($docPath) {
                                 $educationImages[] = $docPath;
                             }
@@ -340,10 +372,11 @@
                         }
                     }
                 }
-            
+
                 $data = [
                     'name' => $request['name'],
                     'dob' => $request['dob'] ?? null,
+                    'blood_group' => $request['blood_group'] ?? null,
                     'gender' => $request['gender'] ?? null,
                     'phone' => $request['phone'] ?? null,
                     'address' => $request['address'] ?? null,
@@ -360,52 +393,56 @@
                     'week_off_day' => $request['week_off_day'] ?? null,
                     'comp_off_enabled' => $request->has('comp_off_enabled') ? 1 : 0,
                 ];
-            
+
+                // ✅ Reset approval if employee edits details
+                if (\Auth::user()->type === 'employee') {
+                    $data['approval_status'] = 'pending';
+                    $data['approved_at'] = null;
+                    $data['approved_by'] = null;
+                    $data['rejection_reason'] = null;
+                }
+
                 // Update password if provided
                 if (!empty($request->password)) {
                     $data['password'] = Hash::make($request['password']);
-                    // Also update user password
                     $user = User::find($employee->user_id);
                     $user->password = Hash::make($request['password']);
                     $user->save();
                 }
-            
+
                 // Handle document uploads
                 if ($request->has('document')) {
                     foreach ($request->document as $docId => $document) {
                         $employeeDocument = EmployeeDocument::where('employee_id', $employee->id)
                             ->where('document_id', $docId)
                             ->first();
-                        
+
                         if (!$employeeDocument) {
                             $employeeDocument = new EmployeeDocument();
                             $employeeDocument->employee_id = $employee->id;
                             $employeeDocument->document_id = $docId;
                         } else {
-                            // Delete old document if exists
-                            $oldFilePath = 'uploads/document/' . $employeeDocument->document_value;
-                            if (\Storage::disk('public')->exists($oldFilePath)) {
-                                \Storage::disk('public')->delete($oldFilePath);
+                            $oldFilePath = public_path($employeeDocument->document_value);
+                            if (file_exists($oldFilePath)) {
+                                unlink($oldFilePath);
                             }
                         }
-                        
-                        // Upload and save the document
+
                         $filename = $employee->employee_id . '_' . $docId . '_' . time() . '.' . $document->getClientOriginalExtension();
-                        $path = $document->storeAs('uploads/document', $filename, 'public');
-                        $employeeDocument->document_value = $filename;
+                        $path = 'uploads/document/' . $filename;
+                        $document->move(public_path('uploads/document'), $filename);
+
+                        $employeeDocument->document_value = $path;
                         $employeeDocument->save();
                     }
                 }
-            
+
                 $employee->update($data);
-            
-                // Determine where to redirect based on user type
+
                 if (\Auth::user()->hasRole('employee')) {
-                    // Employee gets redirected to their show page
-                    return redirect()->route('employee.show', \Illuminate\Support\Facades\Crypt::encrypt($employee->id))
+                    return redirect()->route('employee.show', Crypt::encrypt($employee->id))
                         ->with('success', __('Employee successfully updated.'));
                 } else {
-                    // HR/Company gets redirected to index
                     return redirect()->route('employee.index')
                         ->with('success', __('Employee successfully updated.'));
                 }
@@ -413,9 +450,8 @@
                 return redirect()->back()->with('error', __('Permission denied.'));
             }
         }
-                
-    
 
+                
         public function destroy($id)
         {
             if (Auth::user()->can('Delete Employee')) {
@@ -626,8 +662,7 @@
         {
             $users = \Auth::user();
 
-            $currantLang = $users->currentLanguage();
-            $joiningletter = JoiningLetter::where('lang', $currantLang)->where('created_by', \Auth::user()->creatorId())->first();
+            $joiningletter = JoiningLetter::where('created_by', \Auth::user()->creatorId())->first();
             $date = date('Y-m-d');
             $employees = Employee::where('id', $id)->where('created_by', \Auth::user()->creatorId())->first();
             $settings = \App\Models\Utility::settings();
@@ -644,6 +679,8 @@
                 'start_time' => !empty($settings['company_start_time']) ? $settings['company_start_time'] : '',
                 'end_time' => !empty($settings['company_end_time']) ? $settings['company_end_time'] : '',
                 'total_hours' => $result,
+                'salary' => !empty($employees->salary) ? $employees->salary : '', // Add this line
+
             ];
 
             $joiningletter->content = JoiningLetter::replaceVariable($joiningletter->content, $obj);
@@ -675,6 +712,8 @@
                 'start_time' => !empty($settings['company_start_time']) ? $settings['company_start_time'] : '',
                 'end_time' => !empty($settings['company_end_time']) ? $settings['company_end_time'] : '',
                 'total_hours' => $result,
+                'salary' => !empty($employees->salary) ? $employees->salary : '', // Add this line
+
                 //         
 
             ];
@@ -854,17 +893,19 @@
 
     private function storeEducationDocument($file, $employeeId, $index)
     {
-        $folderPath = 'uploads/education_images';
-        
-        // Create directory if it doesn't exist
-        if (!file_exists(public_path('storage/' . $folderPath))) {
-            \File::makeDirectory(public_path('storage/' . $folderPath), 0777, true);
+        $folderPath = public_path('/uploads/education_images');
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0777, true);
         }
         
-        $filename = 'edu_' . $employeeId . '_' . $index . '_' . time() . '.' . $file->getClientOriginalExtension();
-        $file->storeAs($folderPath, $filename, 'public');
+        $filename = 'edu_'.$employeeId.'_'.time().'_'.$index.'.'.$file->getClientOriginalExtension();
+        $file->move($folderPath, $filename);
         
-        return $folderPath . '/' . $filename;
+        return 'uploads/education_images/'.$filename;
     }
+
+
+
+    
 
 }

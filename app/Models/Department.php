@@ -12,8 +12,14 @@ class Department extends Model
         'created_by',
     ];
 
-    public function branch(){
-        return $this->hasOne('App\Models\Branch','id','branch_id');
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+    
+    public function employees()
+    {
+        return $this->hasMany(Employee::class);
     }
 
     

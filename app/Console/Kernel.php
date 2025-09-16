@@ -16,6 +16,8 @@ class Kernel extends ConsoleKernel
 
     protected $commands = [
         \App\Console\Commands\AllocateMonthlyLeaves::class,
+        \App\Console\Commands\MarkAbsentees::class,
+
     ];
     
     protected function schedule(Schedule $schedule)
@@ -23,10 +25,13 @@ class Kernel extends ConsoleKernel
         // Schedule the custom command to run daily
         $schedule->command('todos:delete-old')->daily();
         $schedule->command('comp-off:process')
-        ->dailyAt('00:00')
-        ->timezone('Asia/Kolkata'); // Set your appropriate timezone
+                 ->dailyAt('00:05') // Run at 12:05 AM every day
+                 ->timezone('Asia/Kolkata') // Adjust to your timezone
+                 ->withoutOverlapping();
         $schedule->command('leaves:allocate-monthly')
              ->monthlyOn(1, '00:00');
+        $schedule->command('attendance:mark-absentees')->dailyAt('23:59');
+
 
 
     }

@@ -173,8 +173,7 @@ class AttendanceEmployeeController extends Controller
                 return redirect()->back()->with('error', $messages->first());
             }
 
-            $startTime  = Utility::getValByName('company_start_time');
-            $endTime    = Utility::getValByName('company_end_time');
+            // Check for existing attendance
             $attendance = AttendanceEmployee::where('employee_id', '=', $request->employee_id)
                 ->where('date', '=', $request->date)
                 ->where('clock_out', '=', '00:00:00')
@@ -183,55 +182,60 @@ class AttendanceEmployeeController extends Controller
 
             if ($attendance) {
                 return redirect()->route('attendanceemployee.index')->with('error', __('Employee Attendance Already Created.'));
-            } else {
-                $date = date("Y-m-d");
-
-                $totalLateSeconds = strtotime($request->clock_in) - strtotime($date . $startTime);
-                $hours = floor($totalLateSeconds / 3600);
-                $mins  = floor($totalLateSeconds / 60 % 60);
-                $secs  = floor($totalLateSeconds % 60);
-                $late  = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
-
-                $totalEarlyLeavingSeconds = strtotime($date . $endTime) - strtotime($request->clock_out);
-                $hours                    = floor($totalEarlyLeavingSeconds / 3600);
-                $mins                     = floor($totalEarlyLeavingSeconds / 60 % 60);
-                $secs                     = floor($totalEarlyLeavingSeconds % 60);
-                $earlyLeaving             = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
-
-                if (strtotime($request->clock_out) > strtotime($date . $endTime)) {
-                    $totalOvertimeSeconds = strtotime($request->clock_out) - strtotime($date . $endTime);
-                    $hours                = floor($totalOvertimeSeconds / 3600);
-                    $mins                 = floor($totalOvertimeSeconds / 60 % 60);
-                    $secs                 = floor($totalOvertimeSeconds % 60);
-                    $overtime             = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
-                } else {
-                    $overtime = '00:00:00';
-                }
-
-                $employeeAttendance = new AttendanceEmployee();
-                $employeeAttendance->employee_id   = $request->employee_id;
-                $employeeAttendance->date          = $request->date;
-                $employeeAttendance->status        = 'Present';
-                $employeeAttendance->clock_in      = $request->clock_in . ':00';
-                $employeeAttendance->clock_out     = $request->clock_out . ':00';
-                $employeeAttendance->late          = $late;
-                $employeeAttendance->early_leaving = $earlyLeaving;
-                $employeeAttendance->overtime      = $overtime;
-                $employeeAttendance->total_rest    = '00:00:00';
-                $employeeAttendance->created_by    = \Auth::user()->creatorId();
-                $employeeAttendance->save();
-
-                // Send Email Notification
-                $emailData = [
-                    'employee_name' => \Auth::user()->name,
-                    'date'          => $request->date,
-                    'clock_in'      => $request->clock_in,
-                ];
-
-                Mail::to('connect360.software@gmail.com')->send(new AttendanceNotification($emailData));
-
-                return redirect()->route('attendanceemployee.index')->with('success', __('Employee attendance successfully created and email sent.'));
             }
+
+            $date = date("Y-m-d");
+
+            // Calculate late time
+            $totalLateSeconds = strtotime($request->clock_in) - strtotime($date . Utility::getValByName('company_start_time'));
+            $hours = floor($totalLateSeconds / 3600);
+            $mins  = floor($totalLateSeconds / 60 % 60);
+            $secs  = floor($totalLateSeconds % 60);
+            $late  = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
+
+            // Calculate early leaving
+            $totalEarlyLeavingSeconds = strtotime($date . Utility::getValByName('company_end_time')) - strtotime($request->clock_out);
+            $hours = floor($totalEarlyLeavingSeconds / 3600);
+            $mins  = floor($totalEarlyLeavingSeconds / 60 % 60);
+            $secs  = floor($totalEarlyLeavingSeconds % 60);
+            $earlyLeaving = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
+
+            // Calculate overtime
+            if (strtotime($request->clock_out) > strtotime($date . Utility::getValByName('company_end_time'))) {
+                $totalOvertimeSeconds = strtotime($request->clock_out) - strtotime($date . Utility::getValByName('company_end_time'));
+                $hours = floor($totalOvertimeSeconds / 3600);
+                $mins  = floor($totalOvertimeSeconds / 60 % 60);
+                $secs  = floor($totalOvertimeSeconds % 60);
+                $overtime = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
+            } else {
+                $overtime = '00:00:00';
+            }
+
+            // Calculate total worked hours
+            $workedSeconds = strtotime($request->clock_out) - strtotime($request->clock_in);
+            $workedHours = $workedSeconds / 3600;
+            
+            // Determine status
+            if ($workedHours >= AttendanceEmployee::REQUIRED_WORKING_HOURS) {
+                $status = AttendanceEmployee::STATUS_PRESENT;
+            } else {
+                $status = AttendanceEmployee::STATUS_HALF_DAY;
+            }
+
+            $employeeAttendance = new AttendanceEmployee();
+            $employeeAttendance->employee_id   = $request->employee_id;
+            $employeeAttendance->date          = $request->date;
+            $employeeAttendance->status        = $status;
+            $employeeAttendance->clock_in      = $request->clock_in . ':00';
+            $employeeAttendance->clock_out     = $request->clock_out . ':00';
+            $employeeAttendance->late          = $late;
+            $employeeAttendance->early_leaving = $earlyLeaving;
+            $employeeAttendance->overtime      = $overtime;
+            $employeeAttendance->total_rest    = '00:00:00';
+            $employeeAttendance->created_by    = \Auth::user()->creatorId();
+            $employeeAttendance->save();
+
+            return redirect()->route('attendanceemployee.index')->with('success', __('Employee attendance successfully created.'));
         } else {
             return redirect()->back()->with('error', __('Permission denied.'));
         }
@@ -397,8 +401,14 @@ class AttendanceEmployeeController extends Controller
     public function update(Request $request, $id)
     {
         if (\Auth::user()->type == 'company' || \Auth::user()->type == 'hr') {
-            $employeeId      = AttendanceEmployee::where('employee_id', $request->employee_id)->first();
-            $check = AttendanceEmployee::where('id', '=', $id)->where('employee_id', '=', $request->employee_id)->where('date', $request->date)->first();
+            $check = AttendanceEmployee::where('id', '=', $id)
+                                    ->where('employee_id', '=', $request->employee_id)
+                                    ->where('date', $request->date)
+                                    ->first();
+
+            if (!$check) {
+                return redirect()->route('attendanceemployee.index')->with('error', __('Attendance record not found.'));
+            }
 
             $startTime = Utility::getValByName('company_start_time');
             $endTime   = Utility::getValByName('company_end_time');
@@ -406,42 +416,50 @@ class AttendanceEmployeeController extends Controller
             $clockIn = $request->clock_in;
             $clockOut = $request->clock_out;
 
-            if ($clockIn) {
-                $status = "present";
-            } else {
-                $status = "leave";
-            }
-
+            // Calculate late time
             $totalLateSeconds = strtotime($clockIn) - strtotime($startTime);
-
             $hours = floor($totalLateSeconds / 3600);
             $mins  = floor($totalLateSeconds / 60 % 60);
             $secs  = floor($totalLateSeconds % 60);
             $late  = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
 
+            // Calculate early leaving
             $totalEarlyLeavingSeconds = strtotime($endTime) - strtotime($clockOut);
-            $hours                    = floor($totalEarlyLeavingSeconds / 3600);
-            $mins                     = floor($totalEarlyLeavingSeconds / 60 % 60);
-            $secs                     = floor($totalEarlyLeavingSeconds % 60);
-            $earlyLeaving             = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
+            $hours = floor($totalEarlyLeavingSeconds / 3600);
+            $mins  = floor($totalEarlyLeavingSeconds / 60 % 60);
+            $secs  = floor($totalEarlyLeavingSeconds % 60);
+            $earlyLeaving = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
 
+            // Calculate overtime
             if (strtotime($clockOut) > strtotime($endTime)) {
-                //Overtime
                 $totalOvertimeSeconds = strtotime($clockOut) - strtotime($endTime);
-                $hours                = floor($totalOvertimeSeconds / 3600);
-                $mins                 = floor($totalOvertimeSeconds / 60 % 60);
-                $secs                 = floor($totalOvertimeSeconds % 60);
-                $overtime             = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
+                $hours = floor($totalOvertimeSeconds / 3600);
+                $mins  = floor($totalOvertimeSeconds / 60 % 60);
+                $secs  = floor($totalOvertimeSeconds % 60);
+                $overtime = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
             } else {
                 $overtime = '00:00:00';
             }
+
+            // Calculate total worked hours
+            $workedSeconds = strtotime($clockOut) - strtotime($clockIn);
+            $workedHours = $workedSeconds / 3600;
+            
+            // Determine status
+            if ($workedHours >= AttendanceEmployee::REQUIRED_WORKING_HOURS) {
+                $status = AttendanceEmployee::STATUS_PRESENT;
+            } else {
+                $status = AttendanceEmployee::STATUS_HALF_DAY;
+            }
+
             if ($check->date == date('Y-m-d')) {
                 $check->update([
                     'late' => $late,
                     'early_leaving' => ($earlyLeaving > 0) ? $earlyLeaving : '00:00:00',
                     'overtime' => $overtime,
                     'clock_in' => $clockIn,
-                    'clock_out' => $clockOut
+                    'clock_out' => $clockOut,
+                    'status' => $status
                 ]);
 
                 return redirect()->route('attendanceemployee.index')->with('success', __('Employee attendance successfully updated.'));
@@ -683,6 +701,16 @@ class AttendanceEmployeeController extends Controller
                         $secs                     = floor($totalEarlyLeavingSeconds % 60);
                         $earlyLeaving             = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
 
+                        // Calculate total worked hours
+                        $workedSeconds = strtotime($out) - strtotime($in);
+                        $workedHours = $workedSeconds / 3600;
+                        
+                        // Determine status
+                        if ($workedHours >= AttendanceEmployee::REQUIRED_WORKING_HOURS) {
+                            $status = AttendanceEmployee::STATUS_PRESENT;
+                        } else {
+                            $status = AttendanceEmployee::STATUS_HALF_DAY;
+                        }
 
                         if (strtotime($out) > strtotime($endTime)) {
                             //Overtime
@@ -706,7 +734,7 @@ class AttendanceEmployeeController extends Controller
                         }
 
                         $employeeAttendance->date          = $request->date;
-                        $employeeAttendance->status        = 'Present';
+                        $employeeAttendance->status        = $status; // Updated status
                         $employeeAttendance->clock_in      = $in;
                         $employeeAttendance->clock_out     = $out;
                         $employeeAttendance->late          = $late;
@@ -725,7 +753,7 @@ class AttendanceEmployeeController extends Controller
                             $employeeAttendance->created_by  = \Auth::user()->creatorId();
                         }
 
-                        $employeeAttendance->status        = 'Leave';
+                        $employeeAttendance->status        = AttendanceEmployee::STATUS_ABSENT;
                         $employeeAttendance->date          = $request->date;
                         $employeeAttendance->clock_in      = '00:00:00';
                         $employeeAttendance->clock_out     = '00:00:00';
@@ -884,7 +912,7 @@ class AttendanceEmployeeController extends Controller
     {
         $settings = Utility::settings();
 
-        // IP Restriction Check
+        // IP Restriction Check (existing code)
         if (!empty($settings['ip_restrict']) && $settings['ip_restrict'] == 'on') {
             $userIp = request()->ip();
             $ip = IpRestrict::where('created_by', Auth::user()->creatorId())->whereIn('ip', [$userIp])->first();
@@ -898,19 +926,19 @@ class AttendanceEmployeeController extends Controller
         $date = date("Y-m-d");
         $time = date("H:i:s");
         
-        // Get location data from request
+        // Get location data
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
         $location = $request->input('location');
         $accuracy = $request->input('accuracy');
 
-        // Check if the user has already punched in today
+        // Check existing attendance
         $todayAttendance = AttendanceEmployee::where('employee_id', $employeeId)
                                             ->where('date', $date)
                                             ->first();
 
         if (!$todayAttendance) {
-            // First check if there's any pending clock-in (to prevent duplicates from multiple clicks)
+            // PUNCH IN LOGIC
             $pendingClockIn = AttendanceEmployee::where('employee_id', $employeeId)
                                             ->where('date', $date)
                                             ->where('clock_in', '!=', '00:00:00')
@@ -921,7 +949,7 @@ class AttendanceEmployeeController extends Controller
                 return redirect()->back()->with('error', __('Your clock-in is already being processed.'));
             }
 
-            // PUNCH IN
+            // Calculate late time
             $expectedStartTime = $date . ' ' . Utility::getValByName('company_start_time');
             $actualClockInTime = $date . ' ' . $time;
             $totalLateSeconds = max(strtotime($actualClockInTime) - strtotime($expectedStartTime), 0);
@@ -930,7 +958,7 @@ class AttendanceEmployeeController extends Controller
             $employeeAttendance = new AttendanceEmployee();
             $employeeAttendance->employee_id = $employeeId;
             $employeeAttendance->date = $date;
-            $employeeAttendance->status = 'Present';
+            $employeeAttendance->status = AttendanceEmployee::STATUS_SINGLE_PUNCH; // Set initial status
             $employeeAttendance->clock_in = $time;
             $employeeAttendance->clock_out = '00:00:00';
             $employeeAttendance->late = $late;
@@ -939,34 +967,56 @@ class AttendanceEmployeeController extends Controller
             $employeeAttendance->total_rest = '00:00:00';
             $employeeAttendance->created_by = \Auth::user()->id;
             
-            // Save location data if available
+            // Save location data
             if ($latitude && $longitude) {
                 $employeeAttendance->clock_in_latitude = $latitude;
                 $employeeAttendance->clock_in_longitude = $longitude;
+                
+                // If location is not provided or is just coordinates, try to geocode it
+                if (empty($location) || strpos($location, 'Coordinates:') === 0 || strpos($location, 'Location near coordinates') === 0) {
+                    $location = $this->geocodeCoordinates($latitude, $longitude);
+                }
+                
                 $employeeAttendance->clock_in_location = $location;
                 $employeeAttendance->clock_in_accuracy = $accuracy;
             }
             
             $employeeAttendance->save();
 
-            
-
             return redirect()->back()->with('success', __('Employee Successfully Clocked In.'));
         } 
         elseif ($todayAttendance->clock_out == '00:00:00') {
-            // PUNCH OUT
+            // PUNCH OUT LOGIC
             $clockInTime = strtotime($todayAttendance->clock_in);
             $clockOutTime = strtotime($time);
             $workedSeconds = $clockOutTime - $clockInTime;
+            
+            // Calculate total worked hours in decimal
+            $totalWorkedHours = $workedSeconds / 3600;
+            
+            // Determine status based on worked hours
+            if ($totalWorkedHours >= AttendanceEmployee::REQUIRED_WORKING_HOURS) {
+                $status = AttendanceEmployee::STATUS_PRESENT;
+            } else {
+                $status = AttendanceEmployee::STATUS_HALF_DAY;
+            }
+            
             $totalWorked = gmdate("H:i:s", $workedSeconds);
 
             $todayAttendance->clock_out = $time;
             $todayAttendance->overtime = $totalWorked;
+            $todayAttendance->status = $status; // Update status based on worked hours
 
-            // Save clock-out location if available
+            // Save clock-out location
             if ($latitude && $longitude) {
                 $todayAttendance->clock_out_latitude = $latitude;
                 $todayAttendance->clock_out_longitude = $longitude;
+                
+                // If location is not provided or is just coordinates, try to geocode it
+                if (empty($location) || strpos($location, 'Coordinates:') === 0 || strpos($location, 'Location near coordinates') === 0) {
+                    $location = $this->geocodeCoordinates($latitude, $longitude);
+                }
+                
                 $todayAttendance->clock_out_location = $location;
                 $todayAttendance->clock_out_accuracy = $accuracy;
             }
@@ -978,10 +1028,70 @@ class AttendanceEmployeeController extends Controller
 
         return redirect()->back()->with('error', __('You have already clocked out today.'));
     }
+
+    protected function geocodeCoordinates($latitude, $longitude)
+    {
+        // Try OpenStreetMap Nominatim API first (free, no key required)
+        try {
+            $client = new \GuzzleHttp\Client([
+                'timeout' => 5,
+                'headers' => [
+                    'User-Agent' => 'HRM-System/1.0',
+                    'Accept' => 'application/json'
+                ]
+            ]);
+            
+            $response = $client->get('https://nominatim.openstreetmap.org/reverse', [
+                'query' => [
+                    'format' => 'json',
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'zoom' => 18,
+                    'addressdetails' => 1
+                ]
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+
+            if (!empty($data['display_name'])) {
+                \Log::info('Geocoding successful via OpenStreetMap', ['location' => $data['display_name']]);
+                return $data['display_name'];
+            }
+        } catch (\Exception $e) {
+            \Log::warning('OpenStreetMap geocoding failed: ' . $e->getMessage());
+        }
+
+        // Fallback to Google Maps API if configured
+        $googleApiKey = env('GOOGLE_MAPS_API_KEY');
+        if ($googleApiKey) {
+            try {
+                $client = new \GuzzleHttp\Client(['timeout' => 5]);
+                $response = $client->get('https://maps.googleapis.com/maps/api/geocode/json', [
+                    'query' => [
+                        'latlng' => "$latitude,$longitude",
+                        'key' => $googleApiKey
+                    ]
+                ]);
+
+                $data = json_decode($response->getBody(), true);
+
+                if ($data['status'] === 'OK' && !empty($data['results'][0]['formatted_address'])) {
+                    \Log::info('Geocoding successful via Google Maps', ['location' => $data['results'][0]['formatted_address']]);
+                    return $data['results'][0]['formatted_address'];
+                }
+                
+                \Log::error('Google Maps geocoding failed', ['response' => $data]);
+            } catch (\Exception $e) {
+                \Log::error('Google Maps geocoding error: ' . $e->getMessage());
+            }
+        }
+
+        // Final fallback - return a descriptive location name
+        \Log::warning('All geocoding services failed, using fallback location name');
+        return "Location near coordinates " . number_format($latitude, 4) . ", " . number_format($longitude, 4);
+    }
     
-    /**
-     * Validate if the employee is within allowed company premises
-     */
+
     private function isLocationValid($latitude, $longitude, $accuracy)
     {
         // Get company location settings
@@ -1010,10 +1120,7 @@ class AttendanceEmployeeController extends Controller
         return $distance <= $allowedRadius;
     }
     
-    /**
-     * Calculate distance between two coordinates in meters
-     * Using Haversine formula
-     */
+
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
     {
         $earthRadius = 6371000; // meters
@@ -1028,6 +1135,27 @@ class AttendanceEmployeeController extends Controller
     
         return $earthRadius * $c;
     }
+
+    function getAddressFromCoordinates($latitude, $longitude) {
+    if (empty($latitude) || empty($longitude)) {
+        return "Location not available";
+    }
+    
+    // Use Google Maps Geocoding API
+    $apiKey = 'YOUR_GOOGLE_MAPS_API_KEY'; // You need to get this from Google
+    $url = "https://maps.googleapis.com/maps/api/geocode/json?latlng={$latitude},{$longitude}&key={$apiKey}";
+    
+    // Make API request
+    $response = file_get_contents($url);
+    $data = json_decode($response, true);
+    
+    // Check if we got a valid response
+    if ($data['status'] === 'OK' && !empty($data['results'][0]['formatted_address'])) {
+        return $data['results'][0]['formatted_address'];
+    }
+    
+    return "Location not available";
+}
 
     public function calendar(Request $request)
     {
@@ -1186,7 +1314,6 @@ class AttendanceEmployeeController extends Controller
                     $employee->where('department_id', $request->department);
                 }
 
-                // Add employee filter
                 if (!empty($request->employee)) {
                     $employee->where('id', $request->employee);
                 }
@@ -1201,73 +1328,137 @@ class AttendanceEmployeeController extends Controller
                 $year = date('Y', strtotime($request->month));
                 $start_date = date($year . '-' . $month . '-01');
                 $end_date = date('Y-m-t', strtotime('01-' . $month . '-' . $year));
-                
-                $query->whereBetween('date', [$start_date, $end_date]);
-            } elseif ($request->type == 'daily' && !empty($request->date)) {
-                $query->where('date', $request->date);
             } else {
                 $month = date('m');
                 $year = date('Y');
                 $start_date = date($year . '-' . $month . '-01');
                 $end_date = date('Y-m-t', strtotime('01-' . $month . '-' . $year));
-                
-                $query->whereBetween('date', [$start_date, $end_date]);
+            }
+            
+            $query->whereBetween('date', [$start_date, $end_date]);
+
+            $attendances = $query->orderBy('date', 'asc')
+                                ->orderBy('clock_in', 'asc')
+                                ->get();
+
+            // Get all dates in the selected period
+            $dates = [];
+            $current = \Carbon\Carbon::parse($start_date);
+            $end = \Carbon\Carbon::parse($end_date);
+            
+            while ($current <= $end) {
+                $dates[] = $current->format('Y-m-d');
+                $current->addDay();
             }
 
-            $attendanceEmployee = $query->orderBy('date', 'desc')
-                                    ->orderBy('clock_in', 'desc')
-                                    ->get();
+            // Get all employees in the filtered set
+            $employeeIds = $attendances->pluck('employee_id')->unique();
+            $employees = Employee::whereIn('id', $employeeIds)
+                                ->with('user')
+                                ->get();
 
-            // Generate CSV
-            $fileName = 'attendance_' . date('Y-m-d') . '.csv';
-            $headers = array(
-                "Content-type"        => "text/csv",
-                "Content-Disposition" => "attachment; filename=$fileName",
-                "Pragma"              => "no-cache",
-                "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-                "Expires"             => "0"
-            );
-
-            $columns = [];
-            if (\Auth::user()->type != 'employee') {
-                $columns = ['Employee', 'Employee ID', 'Date', 'Status', 'Clock-In Time', 'Clock-In Location', 'Clock-Out Time', 'Clock-Out Location', 'Late', 'Early Leaving', 'Overtime'];
-            } else {
-                $columns = ['Date', 'Status', 'Clock-In Time', 'Clock-In Location', 'Clock-Out Time', 'Clock-Out Location', 'Late', 'Early Leaving', 'Overtime'];
+            // Group attendance by employee and date
+            $attendanceData = [];
+            foreach ($attendances as $attendance) {
+                $attendanceData[$attendance->employee_id][$attendance->date] = [
+                    'status' => $attendance->status,
+                    'clock_in' => $attendance->clock_in,
+                    'clock_out' => $attendance->clock_out,
+                    'total' => $this->calculateWorkedHours($attendance->clock_in, $attendance->clock_out)
+                ];
             }
 
-            $callback = function() use($attendanceEmployee, $columns) {
-                $file = fopen('php://output', 'w');
-                fputcsv($file, $columns);
+            // Generate Excel file
+            $fileName = 'attendance_' . date('Y-m-d') . '.xlsx';
+            
+            return \Excel::download(new class($dates, $employees, $attendanceData, $start_date, $end_date) implements \Maatwebsite\Excel\Concerns\FromView, \Maatwebsite\Excel\Concerns\WithStyles {
+                private $dates;
+                private $employees;
+                private $attendanceData;
+                private $start_date;
+                private $end_date;
 
-                foreach ($attendanceEmployee as $attendance) {
-                    $row = [];
-                    if (\Auth::user()->type != 'employee') {
-                        $row[] = !empty($attendance->employee) ? $attendance->employee->name : '';
-                        $row[] = !empty($attendance->employee) ? $attendance->employee->employee_id : '';   
-                                }
-                    
-                    $row[] = \Auth::user()->dateFormat($attendance->date);
-                    $row[] = $attendance->status;
-                    $row[] = $attendance->clock_in != '00:00:00' ? \Auth::user()->timeFormat($attendance->clock_in) : '00:00';
-                    $row[] = str_replace('<br>', ' ', $attendance->clock_in_location);
-                    $row[] = $attendance->clock_out != '00:00:00' ? \Auth::user()->timeFormat($attendance->clock_out) : '00:00';
-                    $row[] = str_replace('<br>', ' ', $attendance->clock_out_location);
-                    $row[] = $attendance->late;
-                    $row[] = $attendance->early_leaving;
-                    $row[] = $attendance->overtime;
-
-                    fputcsv($file, $row);
+                public function __construct($dates, $employees, $attendanceData, $start_date, $end_date)
+                {
+                    $this->dates = $dates;
+                    $this->employees = $employees;
+                    $this->attendanceData = $attendanceData;
+                    $this->start_date = $start_date;
+                    $this->end_date = $end_date;
                 }
 
-                fclose($file);
-            };
+                public function view(): \Illuminate\View\View
+                {
+                    return view('attendance.export', [
+                        'dates' => $this->dates,
+                        'employees' => $this->employees,
+                        'attendanceData' => $this->attendanceData,
+                        'start_date' => $this->start_date,
+                        'end_date' => $this->end_date
+                    ]);
+                }
 
-            return response()->stream($callback, 200, $headers);
+                public function styles(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet)
+                {
+                    // Apply borders to all cells
+                    $lastColumn = count($this->dates) + 1;
+                    $lastRow = (count($this->employees) * 50) + 2;
+                    
+                    $sheet->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastColumn) . $lastRow)
+                        ->getBorders()
+                        ->getAllBorders()
+                        ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                    
+                    // Center align all cells
+                    $sheet->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastColumn) . $lastRow)
+                        ->getAlignment()
+                        ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                }
+            }, $fileName);
         } else {
             return redirect()->back()->with('error', __('Permission denied.'));
         }
     }
 
+    private function calculateWorkedHours($clockIn, $clockOut)
+    {
+        if ($clockIn == '00:00:00' || $clockOut == '00:00:00') {
+            return '00:00';
+        }
+        
+        $start = \Carbon\Carbon::parse($clockIn);
+        $end = \Carbon\Carbon::parse($clockOut);
+        
+        $diff = $start->diff($end);
+        
+        return sprintf('%02d:%02d', $diff->h, $diff->i);
+    }
+
+
+    protected function calculateAttendanceStatus($clockIn, $clockOut, $date)
+    {
+        // If no clock in at all, return Absent
+        if (empty($clockIn) || $clockIn == '00:00:00') {
+            return 'Absent';
+        }
+        
+        // If clocked in but not out, return Single Punch In
+        if (empty($clockOut) || $clockOut == '00:00:00') {
+            return 'Single Punch In';
+        }
+        
+        // Calculate total worked time
+        $start = \Carbon\Carbon::parse($date . ' ' . $clockIn);
+        $end = \Carbon\Carbon::parse($date . ' ' . $clockOut);
+        $totalMinutes = $end->diffInMinutes($start);
+        
+        // Full day threshold is 8.5 hours = 510 minutes
+        if ($totalMinutes >= 510) {
+            return 'Present';
+        } else {
+            return 'Half Day';
+        }
+    }
     
    
 }

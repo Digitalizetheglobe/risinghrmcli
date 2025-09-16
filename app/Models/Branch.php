@@ -11,5 +11,15 @@ class Branch extends Model
         'name','created_by'
     ];
 
+    public function departments()
+    {
+        return $this->hasMany(Department::class);
+    }
+    
+    public function employees()
+    {
+        return $this->hasManyThrough(Employee::class, Department::class);
+    }
+
     
 }

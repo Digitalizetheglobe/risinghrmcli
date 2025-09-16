@@ -56,6 +56,7 @@ class BookingForm extends Model
         'booking_date',
         'plot_area',
         'carpet_area',
+        'built_up_area',
         'rate_per_sq_ft',
         'basic_cost',
         'cost_infrastructure',
@@ -66,25 +67,37 @@ class BookingForm extends Model
         'other_charges',
         'other',
         'total_cost',
+        'agreement_cost',
+        'legal_charges',
 
         // Payment Details (Stored as JSON)
         'payment_data',
         'remaining',
+        'is_cancelled',
+        'agreement',
+
+
     ];
 
-    
-
-   // Mutator to store payment details as JSON
-   public function setPaymentDetailsAttribute($value)
-   {
-       $this->attributes['payment_data'] = json_encode($value);
-   }
-
-   // Accessor to get payment details as an array
-   public function getPaymentDataAttribute($value)
+    public function setPaymentDataAttribute($value)
     {
-        return json_decode($value, true) ?: [];
+        if (is_array($value)) {
+            $this->attributes['payment_data'] = json_encode($value);
+        } else {
+            $this->attributes['payment_data'] = $value;
+        }
     }
+
+    public function getPaymentDataAttribute($value)
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
    public function employee()
    {
        return $this->belongsTo(User::class, 'employee_id');
@@ -96,10 +109,18 @@ public function unit()
     return $this->belongsTo(Unit::class, 'unit_id');
 }
 
+// In BookingForm.php model
+public function timesheet()
+{
+    return $this->belongsTo(TimeSheet::class, 'enquiry_id');
+}
+
 public function project()
 {
     return $this->belongsTo(Project::class, 'project_id');
 }
+
+
    
 // app/Models/Unit.php
 

@@ -31,11 +31,17 @@ class TimeSheet extends Model
         'client_status',
         'executive_remark',
         'feedback_information',
+        'assigned_to',  
+        'is_booked',
+
+        
     ];
     
-   // In app/Models/TimeSheet.php
     protected $casts = [
-        'feedback_information' => 'array'
+        'feedback_information' => 'array',
+            'site_heads' => 'array',
+            'assigned_data' => 'array',
+
     ];
 
     public function getFeedbacksAttribute()
@@ -43,11 +49,10 @@ class TimeSheet extends Model
         return $this->feedback_information ?? [];
     }
     
-   // In TimeSheet.php
-public function employee()
-{
-    return $this->belongsTo(User::class, 'employee_id');
-}
+    public function employee()
+    {
+        return $this->belongsTo(User::class, 'employee_id');
+    }
     
     public function project()
     {
@@ -59,15 +64,54 @@ public function employee()
         return $this->belongsTo(Unit::class);
     }
 
-    // In Employee model
-public function user()
+    public function presaleEmployee()
+    {
+        return $this->belongsTo(Employee::class, 'presale_employee_id');
+    }
+
+public function isVisibleTo($userId)
 {
-    return $this->belongsTo(User::class);
+    // Get employee ID for the user
+    $employee = Employee::where('user_id', $userId)->first();
+    $employeeId = $employee ? $employee->id : null;
+
+    // 1. First check if user is admin/director - they see everything
+    if (auth()->user()->type == 'company' || auth()->user()->type == 'Director') {
+        return true;
+    }
+
+    // 2. Check if user is site head for this timesheet's project
+    if ($this->project && $employeeId) {
+        $siteHeads = $this->project->site_heads ?? [];
+        
+        if (is_array($siteHeads)) {
+            $normalizedHeads = array_map('strval', $siteHeads);
+            
+            if (in_array((string)$employeeId, $normalizedHeads)) {
+                return true; // Site heads see ALL timesheets for their projects
+            }
+        }
+    }
+
+    // 3. Check assignment visibility (only if not already handled by site head check)
+    if ($this->assigned_to) {
+        return $this->assigned_to == $userId;
+    }
+
+    // 4. Original creator can always see their own timesheets
+    if ($this->employee_id == $userId) {
+        return true;
+    }
+
+    return false;
 }
 
-// In TimeSheet.php
-public function presaleEmployee()
-{
-    return $this->belongsTo(Employee::class, 'presale_employee_id');
-}
+
+
+    public function assignedEmployee()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+
 }

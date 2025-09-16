@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Unit;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\UnitsImport;
 use App\Models\Project;
@@ -77,5 +78,44 @@ public function destroy(Unit $unit)
     $unit->delete();
     return redirect()->route('units.index')->with('success', 'Unit deleted successfully!');
 }
+
+public function bulkDelete(Request $request)
+    {
+        try {
+            if (!Auth::user()->can('Delete Employee')) {
+                abort(403, 'Permission Denied');
+            }
+            
+            $request->validate([
+                'unit_ids' => 'required|string' // We'll receive a JSON string
+            ]);
+            
+            // Decode the JSON string to array
+            $unitIds = json_decode($request->unit_ids, true);
+            
+            if (!is_array($unitIds) || empty($unitIds)) {
+                return redirect()->route('units.index')
+                    ->with('error', 'No units selected for deletion.')
+                    ->with('debug', 'Unit IDs: ' . $request->unit_ids);
+            }
+            
+            Log::info('Attempting to delete units: ' . json_encode($unitIds));
+            
+            $deleteCount = Unit::whereIn('id', $unitIds)->delete();
+            
+            Log::info("Successfully deleted $deleteCount units.");
+            
+            return redirect()->route('units.index')
+                ->with('success', "Successfully deleted $deleteCount units.");
+                
+        } catch (\Exception $e) {
+            Log::error('Bulk delete failed: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return redirect()->route('units.index')
+                ->with('error', 'Delete failed: ' . $e->getMessage())
+                ->with('debug', 'Unit IDs: ' . $request->unit_ids);
+        }
+    }
 
 }

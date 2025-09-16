@@ -2012,12 +2012,5 @@ $currIncrementLetterLang = \App\Models\IncrementLetter::where('created_by',  \Au
         return redirect()->back()->with('success', __('Increment Letter successfully saved.'));
     }
 
-    public function incrementletterUpdate($lang, Request $request)
-{
-    $user = \App\Models\IncrementLetter::updateOrCreate(
-        ['lang' => $lang, 'created_by' => \Auth::user()->id], 
-        ['content' => $request->content]
-    );
-    return redirect()->back()->with('success', __('Increment Letter successfully saved.'));
-}
+
 }

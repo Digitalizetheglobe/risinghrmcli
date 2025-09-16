@@ -17,48 +17,66 @@ class EmployeesExport implements FromCollection, WithHeadings
     */
     public function collection()
     {
-        $data = Employee::where('created_by', \Auth::user()->creatorId())->get();
-        foreach($data as $k => $employees)
+        $employees = Employee::where('created_by', \Auth::user()->creatorId())->get();
+        $data = [];
+        
+        foreach($employees as $employee)
         {
-            unset($employees->id,$employees->user_id,$employees->documents,$employees->tax_payer_id,$employees->is_active,$employees->created_at,$employees->updated_at);
+            // Format the employee ID as RIS001, RIS002, etc.
+            $formattedId = 'RS' . str_pad($employee->id, 3, '0', STR_PAD_LEFT);
+            
+            $row = [
+                'employee_id' => $formattedId, // Use the formatted ID
+                'name' => $employee->name,
+                'dob' => $employee->dob,
+                'blood_group' => $employee->blood_group,
+                'gender' => $employee->gender,
+                'phone' => $employee->phone,
+                'office_phone_one' => $employee->office_phone_one,
+                'office_phone_two' => $employee->office_phone_two,
+                'emergency_number' => $employee->emergency_number,
+                'address' => $employee->address,
+                'email' => $employee->email,
+                'branch_id' => !empty($employee->branch_id) ? $employee->branch->name : '-',
+                'department_id' => !empty($employee->department_id) ? $employee->department->name : '-',
+                'designation_id' => !empty($employee->designation_id) ? $employee->designation->name : '-',
+                'education_details' => !empty($employee->education_details) ? json_encode($employee->education_details) : '-',
+                'experience_details' => !empty($employee->experience_details) ? json_encode($employee->experience_details) : '-',
+                'company_doj' => $employee->company_doj,
+                'salary' => Employee::employee_salary($employee->salary),
+                'week_off_day' => $employee->week_off_day,
+                'education_images' => !empty($employee->education_images) ? json_encode($employee->education_images) : '-',
+            ];
 
-            $data[$k]["branch_id"]=!empty($employees->branch_id) ? $employees->branch->name : '-';
-            $data[$k]["site_id"]=!empty($employees->site_id) ? $employees->site->name : '-';
-            $data[$k]["department_id"]=!empty($employees->department_id) ? $employees->department->name : '-';
-            $data[$k]["designation_id"]= !empty($employees->designation_id) ? $employees->designation->name : '-';
-            $data[$k]["salary_type"]=!empty($employees->salary_type) ? $employees->salaryType->name :'-';
-            $data[$k]["salary"]=Employee::employee_salary($employees->salary);
-            $data[$k]["created_by"]=Employee::login_user($employees->created_by);
-
+            $data[] = $row;
         }
 
-        return $data;
+        return collect($data);
     }
 
     public function headings(): array
     {
         return [
+            "Employee ID", // Add Employee ID as the first column
             "Name",
             "Date of Birth",
+            "Blood Group",
             "Gender",
             "Phone Number",
+            "Office Phone One",
+            "Office Phone Two",
+            "Emergency Number",
             "Address",
             "Email ID",
-            "Password",
-            "Employee ID",
             "Branch",
             "Department",
             "Designation",
-            "Site",
+            "Education Details",
+            "Experience Details",
             "Date of Join",
-            "Account Holder Name",
-            "Account Number",
-            "Bank Name",
-            "Bank Identifier Code",
-            "Branch Location",
-            "Salary Type",
             "Salary",
-            "Created By"
+            "Week Off Day",
+            "Education Images",
         ];
     }
 }

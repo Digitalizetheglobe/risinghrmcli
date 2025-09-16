@@ -14,6 +14,7 @@ class Employee extends Model
         'custom_id',
         'name',
         'dob',
+        'blood_group',
         'gender',
         'phone',
         'office_phone_one',
@@ -45,6 +46,10 @@ class Employee extends Model
         'project_id',
         'week_off_day',
         'education_images',
+        'approval_status',
+        'approved_at',
+        'approved_by',
+        'rejection_reason',
 
     ];
 
@@ -54,10 +59,21 @@ class Employee extends Model
         'education_images' => 'array',
     ];
 
+
+    public function approvedBy()
+{
+    return $this->belongsTo(User::class, 'approved_by');
+}
+
     public function project()
     {
         return $this->belongsTo(Project::class, 'site_id');
     }
+
+    public function headedProjects()
+{
+    return $this->belongsToMany(Project::class, 'project_site_heads', 'employee_id', 'project_id');
+}
 
 
     public function salary_type()

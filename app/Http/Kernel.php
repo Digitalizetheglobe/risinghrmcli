@@ -22,6 +22,7 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
         \App\Http\Middleware\CheckTermination::class,
+        
 
         
     ];
@@ -70,7 +71,9 @@ class Kernel extends HttpKernel
         'XSS' => \App\Http\Middleware\XSS::class,
         'CheckPlan' => \App\Http\Middleware\CheckPlan::class,
         'Pusher' => \App\Http\Middleware\getPusherSettings::class,
-        'check.termination' => \App\Http\Middleware\CheckTermination::class
+        'check.termination' => \App\Http\Middleware\CheckTermination::class,
+        'timesheet.visibility' => \App\Http\Middleware\CheckTimesheetVisibility::class,
+
 
     ];
 }

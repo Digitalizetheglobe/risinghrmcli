@@ -33,6 +33,7 @@ use App\Models\TimeSheet; // Make sure to import the TimeSheet model at the top
 use App\Models\BookingForm;
 use App\Models\Leave;
 use Illuminate\Http\Request;
+use App\Models\Termination;
 
 
 class HomeController extends Controller
@@ -58,7 +59,7 @@ class HomeController extends Controller
             $user = Auth::user();
             if ($user->type == 'employee') {
                 $emp = Employee::with(['user', 'designation'])->where('user_id', '=', $user->id)->first();
-            
+                
                 $announcements = Announcement::orderBy('announcements.id', 'desc')
                     ->take(5)
                     ->leftJoin('announcement_employees', 'announcements.id', '=', 'announcement_employees.announcement_id')
@@ -67,7 +68,7 @@ class HomeController extends Controller
                         $q->where('announcements.department_id', 0)->where('announcements.employee_id', 0);
                     })
                     ->get();
-            
+                
                 $employees = Employee::get();
                 $meetings = Meeting::orderBy('meetings.id', 'desc')
                         ->leftJoin('meeting_employees', 'meetings.id', '=', 'meeting_employees.meeting_id')
@@ -86,9 +87,9 @@ class HomeController extends Controller
                         $q->where('events.department_id', 0)->where('events.employee_id', 0);
                     })
                     ->get();
-            
+                
                 $arrEvents = [];
-            
+                
                 foreach ($events as $event) {
                     $arr['id'] = $event['event_id'];
                     $arr['title'] = $event['title'];
@@ -98,7 +99,7 @@ class HomeController extends Controller
                     $arr['url'] = (!empty($event['event_id'])) ? route('eventsshow', $event['event_id']) : '0';
                     $arrEvents[] = $arr;
                 }
-            
+                
                 $date = date("Y-m-d");
 
                 // Fetch the latest attendance record for today
@@ -106,19 +107,16 @@ class HomeController extends Controller
                     ->where('date', '=', $date)
                     ->first();
 
-                  // Pass clock-in time if available
+                // Pass clock-in time if available
                 $clockInTime = $employeeAttendance ? $employeeAttendance->clock_in : null;    
                 
 
-                            
                 $officeTime['startTime'] = Utility::getValByName('company_start_time');
                 $officeTime['endTime'] = Utility::getValByName('company_end_time');
-            
+                
                 // Fetch a random daily quote
                 $quote = DailyQuote::inRandomOrder()->first();
 
-
-                
                 $todos = ToDoList::where('user_id', Auth::id())
                 ->whereDate('created_at', Carbon::today()) // Filter by today's date
                 ->get();
@@ -132,12 +130,152 @@ class HomeController extends Controller
                     ->take(5) // Limit to the latest 5 notices
                     ->get();
                 
-
+                // Add employeesNotWorkingToday logic for employee dashboard
+                $currentDate = Carbon::today()->format('Y-m-d');
                 
-            
-            
+                // Get employees who have clocked in today
+                $clockedInEmployees = AttendanceEmployee::where('date', '=', $currentDate)
+                    ->whereNotNull('clock_in')
+                    ->where('clock_in', '!=', '00:00:00')
+                    ->pluck('employee_id');
+
+                $notClockIn = AttendanceEmployee::where('date', '=', $currentDate)->pluck('employee_id');
+
+
+                // Get employees on approved leave today (excluding current employee)
+                $employeesOnLeaveToday = Leave::where('created_by', \Auth::user()->creatorId())
+                    ->where('start_date', '<=', $currentDate)
+                    ->where('end_date', '>=', $currentDate)
+                    ->where('status', 'approved')
+                    ->where('employee_id', '!=', $emp->id) // Exclude current employee
+                    ->pluck('employee_id');
+
+                // Get employees who have week off today (excluding current employee)
+                $todayWeekDay = strtolower(Carbon::today()->format('l'));
+                $employeesOnWeekOffIds = Employee::where('created_by', \Auth::user()->creatorId())
+                    ->where('week_off_day', 'like', "%$todayWeekDay%")
+                    ->pluck('id');
+
+                $notClockIns = Employee::where('created_by', '=', \Auth::user()->creatorId())
+                    ->whereNotIn('id', $clockedInEmployees) // Not clocked in
+                    ->whereNotIn('id', $employeesOnLeaveToday) // Not on leave
+                    ->whereNotIn('id', $employeesOnWeekOffIds) // Not on week off ← NOW DEFINED
+                    ->get();
+
+                    
+
+                // Now get full employee objects for week off (for display)
+                $employeesOnWeekOff = Employee::where('created_by', \Auth::user()->creatorId())
+                    ->where('week_off_day', 'like', "%$todayWeekDay%")
+                    ->where('id', '!=', $emp->id) // Exclude current employee
+                    ->get();
+
+                // Get employees on approved leave (with relationships for display)
+                $onLeaveEmployees = Leave::with(['employees', 'leaveType'])
+                    ->where('created_by', \Auth::user()->creatorId())
+                    ->where('start_date', '<=', $currentDate)
+                    ->where('end_date', '>=', $currentDate)
+                    ->where('status', 'approved')
+                    ->where('employee_id', '!=', $emp->id) // Exclude current employee
+                    ->get();
+
+                // Prepare the final list for display
+                $employeesNotWorkingToday = collect();
+
+                // Add leave employees
+                foreach ($onLeaveEmployees as $leave) {
+                    if ($leave->employees) {
+                        $employeesNotWorkingToday->push([
+                            'employee_name' => $leave->employees->name ?? 'N/A',
+                            'status' => $leave->leaveType->title ?? 'Leave'
+                        ]);
+                    }
+                }
+
+                // Add week off employees (excluding duplicates)
+                foreach ($employeesOnWeekOff as $employee) {
+                    $exists = $employeesNotWorkingToday->contains(function ($item) use ($employee) {
+                        return $item['employee_name'] === $employee->name;
+                    });
+                    
+                    if (!$exists) {
+                        $employeesNotWorkingToday->push([
+                            'employee_name' => $employee->name,
+                            'status' => 'Week Off'
+                        ]);
+                    }
+                }
+
+                        $today = Carbon::today();
+                        $currentMonth = $today->month;
+                        $currentYear = $today->year;
+                        
+                        // Get birthdays this month (not passed yet)
+                        $birthdays = Employee::where('created_by', \Auth::user()->creatorId())
+                            ->whereMonth('dob', $currentMonth)
+                            ->get()
+                            ->map(function ($employee) use ($today, $currentYear) {
+                                $birthdayThisYear = Carbon::create($currentYear, date('m', strtotime($employee->dob)), date('d', strtotime($employee->dob)));
+                                if ($birthdayThisYear >= $today) {
+                                    return [
+                                        'title' => $employee->name . "'s Birthday",
+                                        'start' => $birthdayThisYear->format('Y-m-d'),
+                                        'className' => 'bg-success',
+                                        'allDay' => true,
+                                        'url' => route('employee.show', $employee->id),
+                                        'type' => 'birthday'
+                                    ];
+                                }
+                                return null;
+                            })->filter()->values()->toArray();
+                        
+                        // Get anniversaries this month (completed 1 year or more and not passed yet)
+                        $anniversaries = Employee::where('created_by', \Auth::user()->creatorId())
+                            ->whereMonth('company_doj', $currentMonth)
+                            ->whereYear('company_doj', '<=', $currentYear - 1)
+                            ->get()
+                            ->map(function ($employee) use ($today, $currentYear) {
+                                $anniversaryThisYear = Carbon::create($currentYear, date('m', strtotime($employee->company_doj)), date('d', strtotime($employee->company_doj)));
+                                if ($anniversaryThisYear >= $today) {
+                                    return [
+                                        'title' => $employee->name . "'s Anniversary",
+                                        'start' => $anniversaryThisYear->format('Y-m-d'),
+                                        'className' => 'bg-primary',
+                                        'allDay' => true,
+                                        'url' => route('employee.show', $employee->id),
+                                        'type' => 'anniversary'
+                                    ];
+                                }
+                                return null;
+                            })->filter()->values()->toArray();
+                        
+                        // Filter existing events to only current month and future dates
+                        $filteredEvents = [];
+                        foreach ($events as $event) {
+                            $eventDate = Carbon::parse($event->start_date);
+                            if ($eventDate->month == $currentMonth && $eventDate >= $today) {
+                                $filteredEvents[] = [
+                                    'id' => $event['id'],
+                                    'title' => $event['title'],
+                                    'start' => $event['start_date'],
+                                    'end' => $event['end_date'],
+                                    'className' => $event['color'],
+                                    'url' => route('event.edit', $event['id']),
+                                    'type' => 'event'
+                                ];
+                            }
+                        }
+                        
+                        // Merge all events and sort by date
+                        $allEvents = array_merge($filteredEvents, $birthdays, $anniversaries);
+                        usort($allEvents, function($a, $b) {
+                            return strtotime($a['start']) - strtotime($b['start']);
+                        });
+                        
+
+
                 // Pass employee details to the dashboard
-                return view('dashboard.dashboard', compact('notices', 'arrEvents', 'announcements', 'employees', 'meetings', 'employeeAttendance', 'officeTime', 'quote', 'emp', 'clockInTime', 'todos'));
+                return view('dashboard.dashboard', compact('employeesOnWeekOffIds', 'allEvents', 'employeesNotWorkingToday', 'notices', 'arrEvents', 'announcements', 'employees', 'meetings', 'employeeAttendance', 'officeTime', 'quote', 'emp', 'clockInTime', 'todos'));
             }
             else if ($user->type == 'super admin') {
                 $user                       = \Auth::user();
@@ -156,7 +294,7 @@ class HomeController extends Controller
 
 
             } 
-            else if ($user->type == 'company' || $user->type == 'hr') {
+            else if ($user->type == 'company' || $user->type == 'hr'|| $user->type == 'Director') {
 
                 $today = Carbon::today();
                 $startOfMonth = $today->copy()->startOfMonth();
@@ -219,9 +357,11 @@ class HomeController extends Controller
                 // Merge both to exclude from "not clock in" list
                 $excludeIds = $notClockIn->merge($employeesOnLeaveToday)->unique();
 
-                $notClockIns = Employee::where('created_by', '=', \Auth::user()->creatorId())
-                    ->whereNotIn('id', $excludeIds)
-                    ->get();
+                $terminatedEmployeeIds = Termination::where('created_by', \Auth::user()->creatorId())
+                    ->pluck('employee_id')
+                    ->toArray();
+
+
 
 
                 $employeesOnLeaveToday = Leave::where('created_by', \Auth::user()->creatorId())
@@ -237,64 +377,62 @@ class HomeController extends Controller
                     ->where('start_date', '<=', $currentDate)
                     ->where('end_date', '>=', $currentDate)
                     ->where('status', 'approved')
+                    ->whereNotIn('employee_id', $clockedInEmployees) // Exclude those who clocked in
                     ->get();
 
                 // Get employees who have week off today (just IDs first)
-$todayWeekDay = strtolower(Carbon::today()->format('l'));
-$employeesOnWeekOffIds = Employee::where('created_by', \Auth::user()->creatorId())
-    ->where('week_off_day', 'like', "%$todayWeekDay%")
-    ->pluck('id');
+                $todayWeekDay = strtolower(Carbon::today()->format('l'));
+                $employeesOnWeekOffIds = Employee::where('created_by', \Auth::user()->creatorId())
+                    ->where('week_off_day', 'like', "%$todayWeekDay%")
+                    ->pluck('id');
 
-// Combine all IDs to exclude from "not clocked in" list
-$excludeIds = $clockedInEmployees
-    ->merge($employeesOnLeaveToday)
-    ->merge($employeesOnWeekOffIds)
-    ->unique();
+                $notClockIns = Employee::where('created_by', '=', \Auth::user()->creatorId())
+                    ->whereNotIn('id', $clockedInEmployees) // Not clocked in
+                    ->whereNotIn('id', $employeesOnLeaveToday) // Not on leave
+                    ->whereNotIn('id', $employeesOnWeekOffIds) // Not on week off ← NOW DEFINED
+                    ->whereNotIn('id', $terminatedEmployeeIds) // Not terminated
+                    ->get();
 
-// Get employees who haven't clocked in and aren't on leave/week off
-$notClockIns = Employee::where('created_by', '=', \Auth::user()->creatorId())
-    ->whereNotIn('id', $excludeIds)
-    ->get();
+                // Now get full employee objects for week off (for display)
+                $employeesOnWeekOff = Employee::where('created_by', \Auth::user()->creatorId())
+                    ->where('week_off_day', 'like', "%$todayWeekDay%")
+                    ->whereNotIn('id', $clockedInEmployees) // Exclude those who clocked in
+                    ->get();
 
-// Now get full employee objects for week off (for display)
-$employeesOnWeekOff = Employee::where('created_by', \Auth::user()->creatorId())
-    ->where('week_off_day', 'like', "%$todayWeekDay%")
-    ->get();
+                // Get employees on approved leave (with relationships for display)
+                $onLeaveEmployees = Leave::with(['employees', 'leaveType'])
+                    ->where('created_by', \Auth::user()->creatorId())
+                    ->where('start_date', '<=', $currentDate)
+                    ->where('end_date', '>=', $currentDate)
+                    ->where('status', 'approved')
+                    ->get();
 
-// Get employees on approved leave (with relationships for display)
-$onLeaveEmployees = Leave::with(['employees', 'leaveType'])
-    ->where('created_by', \Auth::user()->creatorId())
-    ->where('start_date', '<=', $currentDate)
-    ->where('end_date', '>=', $currentDate)
-    ->where('status', 'approved')
-    ->get();
+                // Prepare the final list for display
+                $employeesNotWorkingToday = collect();
 
-// Prepare the final list for display
-$employeesNotWorkingToday = collect();
+                // Add leave employees (who didn't clock in)
+                foreach ($onLeaveEmployees as $leave) {
+                    if ($leave->employees) {
+                        $employeesNotWorkingToday->push([
+                            'employee_name' => $leave->employees->name ?? 'N/A',
+                            'status' => $leave->leaveType->title ?? 'Leave'
+                        ]);
+                    }
+                }
 
-// Add leave employees
-foreach ($onLeaveEmployees as $leave) {
-    if ($leave->employees) {
-        $employeesNotWorkingToday->push([
-            'employee_name' => $leave->employees->name ?? 'N/A',
-            'status' => $leave->leaveType->title ?? 'Leave'
-        ]);
-    }
-}
-
-// Add week off employees (excluding duplicates)
-foreach ($employeesOnWeekOff as $employee) {
-    $exists = $employeesNotWorkingToday->contains(function ($item) use ($employee) {
-        return $item['employee_name'] === $employee->name;
-    });
-    
-    if (!$exists) {
-        $employeesNotWorkingToday->push([
-            'employee_name' => $employee->name,
-            'status' => 'Week Off'
-        ]);
-    }
-}
+                // Add week off employees (who didn't clock in)
+                foreach ($employeesOnWeekOff as $employee) {
+                    $exists = $employeesNotWorkingToday->contains(function ($item) use ($employee) {
+                        return $item['employee_name'] === $employee->name;
+                    });
+                    
+                    if (!$exists) {
+                        $employeesNotWorkingToday->push([
+                            'employee_name' => $employee->name,
+                            'status' => 'Week Off'
+                        ]);
+                    }
+                }
 
 
 
@@ -317,7 +455,7 @@ foreach ($employeesOnWeekOff as $employee) {
                 $presentEmployeesWithClockIn = AttendanceEmployee::where('date', '=', $currentDate)
                     ->whereNotNull('clock_in')
                     ->where('clock_in', '!=', '00:00:00')
-                    ->with('employee') // Eager load the employee relationship
+                    ->with('employee')
                     ->get()
                     ->map(function ($attendance) {
                         return [
@@ -326,13 +464,10 @@ foreach ($employeesOnWeekOff as $employee) {
                             'clock_in_location' => $attendance->clock_in_location ?? 'Location not available',
                             'clock_in_latitude' => $attendance->clock_in_latitude,
                             'clock_in_longitude' => $attendance->clock_in_longitude,
-                            'clock_in_accuracy' => $attendance->clock_in_accuracy,
                             'clock_out' => $attendance->clock_out ?? '--:--',
                             'clock_out_location' => $attendance->clock_out_location ?? 'Location not available',
                             'clock_out_latitude' => $attendance->clock_out_latitude,
                             'clock_out_longitude' => $attendance->clock_out_longitude,
-                            'clock_out_accuracy' => $attendance->clock_out_accuracy,
-                            'status' => $attendance->status,
                         ];
                     });
 
@@ -475,11 +610,80 @@ foreach ($employeesOnWeekOff as $employee) {
 
                     $todayBookingCount = BookingForm::whereDate('created_at', Carbon::today())->count();
 
+
+                    // Get current date and month
+                        $today = Carbon::today();
+                        $currentMonth = $today->month;
+                        $currentYear = $today->year;
+                        
+                        // Get birthdays this month (not passed yet)
+                        $birthdays = Employee::where('created_by', \Auth::user()->creatorId())
+                            ->whereMonth('dob', $currentMonth)
+                            ->get()
+                            ->map(function ($employee) use ($today, $currentYear) {
+                                $birthdayThisYear = Carbon::create($currentYear, date('m', strtotime($employee->dob)), date('d', strtotime($employee->dob)));
+                                if ($birthdayThisYear >= $today) {
+                                    return [
+                                        'title' => $employee->name . "'s Birthday",
+                                        'start' => $birthdayThisYear->format('Y-m-d'),
+                                        'className' => 'bg-success',
+                                        'allDay' => true,
+                                        'url' => route('employee.show', $employee->id),
+                                        'type' => 'birthday'
+                                    ];
+                                }
+                                return null;
+                            })->filter()->values()->toArray();
+                        
+                        // Get anniversaries this month (completed 1 year or more and not passed yet)
+                        $anniversaries = Employee::where('created_by', \Auth::user()->creatorId())
+                            ->whereMonth('company_doj', $currentMonth)
+                            ->whereYear('company_doj', '<=', $currentYear - 1)
+                            ->get()
+                            ->map(function ($employee) use ($today, $currentYear) {
+                                $anniversaryThisYear = Carbon::create($currentYear, date('m', strtotime($employee->company_doj)), date('d', strtotime($employee->company_doj)));
+                                if ($anniversaryThisYear >= $today) {
+                                    return [
+                                        'title' => $employee->name . "'s Anniversary",
+                                        'start' => $anniversaryThisYear->format('Y-m-d'),
+                                        'className' => 'bg-primary',
+                                        'allDay' => true,
+                                        'url' => route('employee.show', $employee->id),
+                                        'type' => 'anniversary'
+                                    ];
+                                }
+                                return null;
+                            })->filter()->values()->toArray();
+                        
+                        // Filter existing events to only current month and future dates
+                        $filteredEvents = [];
+                        foreach ($events as $event) {
+                            $eventDate = Carbon::parse($event->start_date);
+                            if ($eventDate->month == $currentMonth && $eventDate >= $today) {
+                                $filteredEvents[] = [
+                                    'id' => $event['id'],
+                                    'title' => $event['title'],
+                                    'start' => $event['start_date'],
+                                    'end' => $event['end_date'],
+                                    'className' => $event['color'],
+                                    'url' => route('event.edit', $event['id']),
+                                    'type' => 'event'
+                                ];
+                            }
+                        }
+                        
+                        // Merge all events and sort by date
+                        $allEvents = array_merge($filteredEvents, $birthdays, $anniversaries);
+                        usort($allEvents, function($a, $b) {
+                            return strtotime($a['start']) - strtotime($b['start']);
+                        });
+                        
+
                     
 
 
 
-                return view('dashboard.company', compact('employeesNotWorkingToday', 'todayEnquiryCount', 'todayBookingCount','notices','totalHolidays', 'arrEvents', 'announcements', 'employees', 'activeJob', 'inActiveJOb', 'meetings', 'countEmployee', 'countUser', 'countTicket', 'countOpenTicket', 'countCloseTicket', 'notClockIns','onLeaveEmployees', 'accountBalance', 'totalPayee', 'totalPayer', 'users', 'plan', 'storage_limit', 'quote','attendancePercentage', 'presentEmployeesWithClockIn', 'totalEmployees', 'totalDepartment', 'totalleaves', 'projects', 'todos','chartData', 'totalProjects'));
+                return view('dashboard.company', compact('employeesOnWeekOffIds', 'allEvents', 'employeesNotWorkingToday', 'todayEnquiryCount', 'todayBookingCount','notices','totalHolidays', 'arrEvents', 'announcements', 'employees', 'activeJob', 'inActiveJOb', 'meetings', 'countEmployee', 'countUser', 'countTicket', 'countOpenTicket', 'countCloseTicket', 'notClockIns','onLeaveEmployees', 'accountBalance', 'totalPayee', 'totalPayer', 'users', 'plan', 'storage_limit', 'quote','attendancePercentage', 'presentEmployeesWithClockIn', 'totalEmployees', 'totalDepartment', 'totalleaves', 'projects', 'todos','chartData', 'totalProjects'));
             }
         } 
     }
@@ -531,8 +735,8 @@ foreach ($employeesOnWeekOff as $employee) {
         ->pluck('employee_id');
     
     $employeesOnLeaveToday = Leave::where('created_by', \Auth::user()->creatorId())
-        ->where('start_date', '<=', $dateString)
-        ->where('end_date', '>=', $dateString)
+        ->where('start_date', '<=', $currentDate)
+        ->where('end_date', '>=', $currentDate)
         ->where('status', 'approved')
         ->pluck('employee_id');
     

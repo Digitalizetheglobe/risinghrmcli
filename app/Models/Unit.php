@@ -18,4 +18,15 @@ public function project()
 }
 
 
+public function scopeAvailable($query)
+{
+    return $query->where('is_approved', 0);
+}
+
+public function scopeBooked($query)
+{
+    return $query->where('is_approved', 1);
+}
+
+
 }

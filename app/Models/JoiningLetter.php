@@ -27,6 +27,8 @@ class JoiningLetter extends Model
             '{start_time}',
             '{end_time}',
             '{total_hours}',
+            '{salary}',
+
 
       
         ];
@@ -41,6 +43,7 @@ class JoiningLetter extends Model
             'start_time' => '-',
             'end_time' => '-',
             'total_hours' => '-',
+            'salary' => '-',
 
         ];
 
